@@ -1,0 +1,75 @@
+<!doctype html>
+<html>
+    <head>
+        <title>websocket</title>
+        <style>
+            #messages {
+                font-family: Arial, sans-serif;
+            }
+
+            #messages .command {
+                color: #aaa;
+            }
+        </style>
+    </head>
+    <body>
+        <div id="container">
+            <ul id="messages">
+            </ul>
+            <form name="command">
+                <input name="command"/>
+                <input type="submit" style="visibility: collapse"/>
+            </form>
+        </div>
+        <script type="text/javascript">
+            (function () {
+                var sock = new WebSocket('ws://localhost:8888/socket'),
+                    form = document.querySelector('form[name=command]'),
+                    commandInput = form.querySelector('input[name=command]'),
+                    messages = document.querySelector('#messages');
+
+                commandInput.disabled = true;
+
+                function showMessage (message, command) {
+                    var msg = document.createElement('p');
+                    msg.textContent = message;
+                    if (command) {
+                        msg.className = 'command';
+                    }
+                    messages.appendChild(msg);
+                }
+
+                sock.onmessage = function (event) {
+                    var data = JSON.parse(event.data);
+                    console.log('message', data);
+                    showMessage(data.message);
+                    commandInput.disabled = (data.prompt === '<disabled>')
+                    commandInput.placeholder = data.prompt || '';
+                };
+
+                sock.onclose = function (event) {
+                    console.log('connection close');
+                    commandInput.disabled = true;
+                };
+
+                sock.onopen = function (event) {
+                    console.log('connected');
+                    commandInput.disabled = false;
+                    commandInput.placeholder = '';
+                };
+
+                form.onsubmit = function (event) {
+                    var cmd = commandInput.value;
+                    event.preventDefault();
+                    if (cmd) {
+                        showMessage(cmd, true);
+                        sock.send(cmd);
+                        commandInput.value = '';
+                        commandInput.disabled = true;
+                    }
+                    return false;
+                }
+            }());
+        </script>
+    </body>
+</html>
