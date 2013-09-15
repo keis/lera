@@ -1,7 +1,13 @@
 from tornado import ioloop, web, websocket
 from tornado.gen import coroutine
+import logging
 import json
 import mud
+import riak
+
+riak_client = riak.Client('http://localhost:8098')
+logging.basicConfig(level=logging.DEBUG)
+logger = logging.getLogger('server')
 
 
 class WebSocket(websocket.WebSocketHandler):
@@ -31,14 +37,14 @@ class WebSocket(websocket.WebSocketHandler):
 
         elif self.quest is None:
             self.quest = message
-            self.user = yield mud.User.get(self.name, self.quest)
+            self.user = yield mud.User.get(riak_client, self.name, self.quest)
 
             desc = yield self.user.look()
             self.write_json({
                 'message': desc
             })
         else:
-            print('extra message to handle_greeting', message)
+            logger.warning('extra message to handle_greeting: %s', message)
 
     @coroutine
     def handle_command(self, message):
@@ -59,7 +65,7 @@ class WebSocket(websocket.WebSocketHandler):
 
     @coroutine
     def on_message(self, message):
-        print('on message', message)
+        logger.info('processing message: %s', message)
         try:
             if not self.user:
                 yield self.handle_greeting(message)
@@ -67,7 +73,7 @@ class WebSocket(websocket.WebSocketHandler):
             else:
                 yield self.handle_command(message)
         except Exception as e:
-            print(e)
+            logger.exception('error when processing message')
 
 
 application = web.Application([
