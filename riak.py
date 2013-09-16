@@ -21,16 +21,44 @@ class Object(dict):
 
         return obj
 
+class MapReduce(dict):
+    def __init__(self):
+        self['inputs'] = []
+        self['query'] = []
+
+    def add(self, *inputs):
+        self['inputs'].extend(inputs)
+
+    def link(self, q):
+        self['query'].append({'link': q})
+
+    def map(self, q):
+        self['query'].append({'map': q})
+
+    def reduce(self, q):
+        self['query'].append({'reduce': q})
+
 
 def format_link(l):
     return '</buckets/%s/keys/%s>; riaktag="%s"' % l
 
 
 class Client(object):
-
+    
     def __init__(self, server):
         self.http = AsyncHTTPClient()
         self.server = server
+
+    @coroutine
+    def mapred(self, query):
+        request = HTTPRequest(
+            self.server + '/mapred',
+            method='POST',
+            headers={'Content-Type': 'application/json'},
+            body=json.dumps(query))
+
+        response = yield self.http.fetch(request)
+        return json.loads(response.body.decode('utf-8'))
 
     @coroutine
     def save(self, bucket, key, value, links=None):
