@@ -19,10 +19,10 @@ spec = [{
 }]
 
 link_spec = [
-    [1, 2],
-    [0],
-    [0, 3],
-    [2]
+    [(1, 'north'), (2, 'west')],
+    [(0, 'south')],
+    [(0, 'east'), (3, 'north')],
+    [(2, 'south')]
 ]
     
 
@@ -30,11 +30,11 @@ link_spec = [
 def create():
     rooms = yield [db.save('rooms', None, d) for d in spec]
     logger.info('rooms created')
-    for i, l in enumerate(link_spec):
+    for i, e in enumerate(link_spec):
         room = rooms[i]
-        links = [('rooms', rooms[t].key, 'exit') for t in l]
+        links = [('rooms', rooms[t].key, l) for (t, l) in e]
         logger.info('adding links for %s, %r', room.key, links)
-        yield db.save('rooms', room.key, room, links)
+        yield db.save('rooms', room.key, spec[i], links)
     print([x.key for x in rooms])
 
 
