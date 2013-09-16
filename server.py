@@ -58,6 +58,13 @@ class WebSocket(websocket.WebSocketHandler):
                 'message': desc
             })
 
+        if parts[0] == 'go':
+            message = yield self.user.go(parts[1])
+
+            self.write_json({
+                'message': message
+            })
+
         else:
             self.write_json({
                 'message': '.. what?'
