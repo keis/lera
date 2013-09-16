@@ -52,6 +52,7 @@ class User(object):
         else:
             logger.info('user loaded: %s', data['name'])
             user = cls(db, data)
+            user.room = data.links[0].key
 
         return user
 

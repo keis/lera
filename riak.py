@@ -1,6 +1,8 @@
 from tornado.gen import coroutine
 from tornado.httpclient import AsyncHTTPClient, HTTPRequest, HTTPError
+from collections import namedtuple
 import json
+import re
 
 
 class Object(dict):
@@ -19,7 +21,11 @@ class Object(dict):
         if 'location' in response.headers:
             obj.location = response.headers['location']
 
+        if 'link' in response.headers:
+            obj.links = list(parse_links(response.headers['link']))
+
         return obj
+
 
 class MapReduce(dict):
     def __init__(self):
@@ -39,8 +45,18 @@ class MapReduce(dict):
         self['query'].append({'reduce': q})
 
 
-def format_link(l):
-    return '</buckets/%s/keys/%s>; riaktag="%s"' % l
+link = namedtuple('link', ('bucket', 'key', 'tag'))
+
+def format_links(links):
+    frmt = '</buckets/%s/keys/%s>; riaktag="%s"'
+    return ', '.join([frmt % l for l in links])
+
+
+def parse_links(links):
+    for l in links.split(', '):
+        data = re.match('</buckets/([^/]*)/keys/([^>]*)>; riaktag="([^"]*)"', l)
+        if data is not None:
+            yield link(data.group(1), data.group(2), data.group(3))
 
 
 class Client(object):
@@ -67,7 +83,7 @@ class Client(object):
         }
 
         if links:
-            headers['Link'] = ', '.join([format_link(l) for l in links])
+            headers['Link'] = format_links(links)
 
         request = HTTPRequest(
             self.server + '/buckets/%s/keys/%s' % (bucket, key or ''),
