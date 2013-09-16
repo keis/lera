@@ -1,8 +1,11 @@
 from tornado.gen import coroutine, Task
 import time
 import logging
+import riak
+
 
 logger = logging.getLogger('mud')
+starting_room = 'Tp10Fhl12GliqHtbRaBf86hPeKX'
 
 
 class User(object):
@@ -24,8 +27,15 @@ class User(object):
 
     @coroutine
     def look(self, what=None):
-        yield Task(lambda callback: callback(time.sleep(0.2)))
-        return "You are in a pitch black room, you are here %s" % self.quest
+        q = riak.MapReduce()
+        q.add(('users', self.key))
+        q.link({'tag': 'room'})
+        q.map({ 
+            'language': 'javascript',
+            'name': 'Riak.mapValuesJson'
+        })
+        (room,) = yield self.db.mapred(q)
+        return room['description']
 
     @classmethod
     @coroutine
@@ -37,6 +47,7 @@ class User(object):
         except KeyError:
             logger.info('Creating new user: %s', name)
             user = cls(db, {'name': name, 'quest': quest})
+            user.room = starting_room
             yield user.save()
         else:
             logger.info('user loaded: %s', data['name'])
@@ -45,4 +56,5 @@ class User(object):
         return user
 
     def save(self):
-        return self.db.save('users', self.key, self.data)       
+        links = [('rooms', self.room, 'room')]
+        return self.db.save('users', self.key, self.data, links)
