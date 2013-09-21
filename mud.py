@@ -12,38 +12,24 @@ starting_room = 'Tp10Fhl12GliqHtbRaBf86hPeKX'
 class TornadoBroker(smoke.Broker):
     # https://github.com/keis/smoke/issues/1
     def publish(self, event, **kwargs):
-        publish = super(Broker, self).publish
-        IOLoop.instance().add_callback(publish, **kwargs)
+        IOLoop.instance().add_callback(super().publish, event, **kwargs)
 
 
 class World(TornadoBroker):
-    def __init__(self):
-        self.rooms = {}
+    enter = smoke.signal('enter')
+    leave = smoke.signal('leave')
 
-    def room(self, db, key):
-        try:
-            room = self.rooms[key]
-        except KeyError as e:
-            room = Room(db, key)
-            self.rooms[key] = room
-        return room
-        
 
 world = World()
 
 
-class Room(smoke.Broker):
-    enter = smoke.signal('enter')
-    leave = smoke.signal('leave')
+class Room(object):
 
-    def __init__(self, db, key):
-        self.db = db
-        self.key = key
-
+    @classmethod
     @coroutine
-    def remove_occupant(self, occupant):
+    def remove_occupant(cls, db, key, occupant):
         try:
-            occupants = yield self.db.get('occupants', self.key)
+            occupants = yield db.get('occupants', key)
         except KeyError as e:
             pass
         else:
@@ -52,24 +38,27 @@ class Room(smoke.Broker):
             except ValueError:
                 pass
             else:
-                yield self.db.save('occupants', self.key, occupants)
-                self.leave(user=occupant, room=self.key)
+                yield db.save('occupants', key, occupants)
+                world.publish((world.leave, key), user=occupant, room=key)
 
+    @classmethod
     @coroutine
-    def add_occupant(self, occupant):
+    def add_occupant(cls, db, key, occupant):
         try:
-            occupants = yield self.db.get('occupants', self.key)
+            occupants = yield db.get('occupants', key)
         except KeyError as e:
             occupants = {'occupants': []}
         occupants['occupants'].append(occupant)
-        yield self.db.save('occupants', self.key, occupants)
-        self.enter(user=occupant, room=self.key)
+        yield db.save('occupants', key, occupants)
+        world.publish((world.enter, key), user=occupant, room=key)
 
 
 class User(object):
     def __init__(self, db, data):
         self.db = db
         self.data = data
+        self.on_enter = smoke.weak(self._on_enter)
+        self.on_leave = smoke.weak(self._on_leave)
 
     def _on_enter(self, user=None, room=None):
         if room != self.room:
@@ -129,19 +118,21 @@ class User(object):
 
         logger.info('%s moving from %s to %s', self.key, self.room, key[1])
         # Remove from old room
-        world.room(self.db, self.room).remove_occupant(self.key)
+        Room.remove_occupant(self.db, self.room, self.key)
+
+        world.disconnect((world.enter, self.room), self.on_enter)
+        world.disconnect((world.leave, self.room), self.on_leave)
 
         # Update room link
         self.room = key[1]
         yield self.save()
 
         # Add to new room
-        _room = world.room(self.db, self.room)
-        yield _room.add_occupant(self.key)
+        yield Room.add_occupant(self.db, self.room, self.key)
         logger.info('%s moved to %s', self.key, self.room)
 
-        _room.enter.subscribe(smoke.weak(self._on_enter))
-        _room.leave.subscribe(smoke.weak(self._on_leave))
+        world.subscribe((world.enter, self.room), self.on_enter)
+        world.subscribe((world.leave, self.room), self.on_leave)
 
         return self.describe(room)
 
@@ -162,9 +153,8 @@ class User(object):
             user = cls(db, data)
             user.room = data.links[0].key
 
-        room = world.room(db, user.room)
-        room.enter.subscribe(smoke.weak(user._on_enter))
-        room.leave.subscribe(smoke.weak(user._on_leave))
+        world.subscribe((world.enter, user.room), user.on_enter)
+        world.subscribe((world.leave, user.room), user.on_leave)
 
         return user
 
