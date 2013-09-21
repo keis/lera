@@ -10,6 +10,13 @@ logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger('server')
 
 
+class Session(object):
+    db = riak_client
+
+    def __init__(self, socket):
+        self.socket = socket
+
+
 class WebSocket(websocket.WebSocketHandler):
     def open(self):
         self.user = None
@@ -37,7 +44,8 @@ class WebSocket(websocket.WebSocketHandler):
 
         elif self.quest is None:
             self.quest = message
-            self.user = yield mud.User.get(riak_client, self.name, self.quest)
+            sess = Session(self)
+            self.user = yield mud.User.get(sess, self.name, self.quest)
 
             desc = yield self.user.look()
             self.write_json({

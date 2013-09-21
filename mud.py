@@ -54,8 +54,8 @@ class Room(object):
 
 
 class User(object):
-    def __init__(self, db, data):
-        self.db = db
+    def __init__(self, session, data):
+        self.session = session
         self.data = data
         self.on_enter = smoke.weak(self._on_enter)
         self.on_leave = smoke.weak(self._on_leave)
@@ -64,13 +64,17 @@ class User(object):
         if room != self.room:
             raise smoke.Disconnect()
         if user != self.key:
-            logger.debug('%s notices %s enters %s', self.key, user, room)
+            self.session.socket.write_json({
+                'message': '%s enters the room' % user
+            })
 
     def _on_leave(self, user=None, room=None):
         if room != self.room:
             raise smoke.Disconnect()
         if user != self.key and room == self.room:
-            logger.debug('%s notices %s leaves %s', self.key, user, room)
+            self.session.socket.write_json({
+                'message': '%s leaves the room' % user
+            })
 
     @property
     def key(self):
@@ -97,7 +101,7 @@ class User(object):
             'name': 'Riak.mapValuesJson'
         })
         # TODO: Load occupants and display somehow.
-        (room,) = yield self.db.mapred(q)
+        (room,) = yield self.session.db.mapred(q)
         return self.describe(room)
 
     @coroutine
@@ -111,14 +115,14 @@ class User(object):
             'language': 'javascript',
             'source': 'function (v) { return [[v.bucket, v.key], Riak.mapValuesJson(v)[0]]; }'
         })
-        result = yield self.db.mapred(q)
+        result = yield self.session.db.mapred(q)
         if result == []:
             return "You can't go %s" % label
         key, room = result
 
         logger.info('%s moving from %s to %s', self.key, self.room, key[1])
         # Remove from old room
-        Room.remove_occupant(self.db, self.room, self.key)
+        Room.remove_occupant(self.session.db, self.room, self.key)
 
         world.disconnect((world.enter, self.room), self.on_enter)
         world.disconnect((world.leave, self.room), self.on_leave)
@@ -128,7 +132,7 @@ class User(object):
         yield self.save()
 
         # Add to new room
-        yield Room.add_occupant(self.db, self.room, self.key)
+        yield Room.add_occupant(self.session.db, self.room, self.key)
         logger.info('%s moved to %s', self.key, self.room)
 
         world.subscribe((world.enter, self.room), self.on_enter)
@@ -138,19 +142,19 @@ class User(object):
 
     @classmethod
     @coroutine
-    def get(cls, db, name, quest):
+    def get(cls, session, name, quest):
         key = name.lower()
 
         try:
-            data = yield db.get('users', key)
+            data = yield session.db.get('users', key)
         except KeyError:
             logger.info('Creating new user: %s', name)
-            user = cls(db, {'name': name, 'quest': quest})
+            user = cls(session, {'name': name, 'quest': quest})
             user.room = starting_room
             yield user.save()
         else:
             logger.info('user loaded: %s', data['name'])
-            user = cls(db, data)
+            user = cls(session, data)
             user.room = data.links[0].key
 
         world.subscribe((world.enter, user.room), user.on_enter)
@@ -160,4 +164,4 @@ class User(object):
 
     def save(self):
         links = [('rooms', self.room, 'room')]
-        return self.db.save('users', self.key, self.data, links)
+        return self.session.db.save('users', self.key, self.data, links)
