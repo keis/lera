@@ -92,11 +92,22 @@ class User(object):
         return room['description']
 
     @coroutine
+    def find_exit(self, label):
+        q = riak.MapReduce()
+        q.add(('users', self.key))
+        q.link({'tag': 'room'})
+        q.link({'tag': label})
+        result = yield self.session.db.mapred(q)
+        if result == []:
+            raise KeyError(label)
+        return result[0]
+
+    @coroutine
     def look(self, what=None):
         q = riak.MapReduce()
         q.add(('users', self.key))
         q.link({'tag': 'room'})
-        q.map({ 
+        q.map({
             'language': 'javascript',
             'name': 'Riak.mapValuesJson'
         })
@@ -107,18 +118,10 @@ class User(object):
     @coroutine
     def go(self, label):
         # Find room to go to
-        q = riak.MapReduce()
-        q.add(('users', self.key))
-        q.link({'tag': 'room'})
-        q.link({'tag': label})
-        q.map({ 
-            'language': 'javascript',
-            'source': 'function (v) { return [[v.bucket, v.key], Riak.mapValuesJson(v)[0]]; }'
-        })
-        result = yield self.session.db.mapred(q)
-        if result == []:
+        try:
+            key = yield self.find_exit(label)
+        except KeyError:
             return "You can't go %s" % label
-        key, room = result
 
         logger.info('%s moving from %s to %s', self.key, self.room, key[1])
         # Remove from old room
@@ -138,7 +141,8 @@ class User(object):
         world.subscribe((world.enter, self.room), self.on_enter)
         world.subscribe((world.leave, self.room), self.on_leave)
 
-        return self.describe(room)
+        out = yield self.look()
+        return out
 
     @classmethod
     @coroutine
