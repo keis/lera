@@ -72,9 +72,7 @@ class User(object):
         if room != self.room:
             raise smoke.Disconnect()
         if user != self.key and room == self.room:
-            self.session.socket.write_json({
-                'message': '%s leaves the room' % user
-            })
+            self.message('%s leaves the room', user)
 
     @property
     def key(self):
@@ -87,6 +85,11 @@ class User(object):
     @property
     def quest(self):
         return self.data['quest']
+
+    def message(self, frmt, *args):
+        self.session.socket.write_json({
+            'message': frmt % args
+        })
 
     def describe(self, room):
         return room['description']
@@ -113,7 +116,7 @@ class User(object):
         })
         # TODO: Load occupants and display somehow.
         (room,) = yield self.session.db.mapred(q)
-        return self.describe(room)
+        self.message(self.describe(room))
 
     @coroutine
     def go(self, label):
@@ -121,7 +124,7 @@ class User(object):
         try:
             key = yield self.find_exit(label)
         except KeyError:
-            return "You can't go %s" % label
+            return self.message("You can't go %s", label)
 
         logger.info('%s moving from %s to %s', self.key, self.room, key[1])
         # Remove from old room
@@ -141,8 +144,7 @@ class User(object):
         world.subscribe((world.enter, self.room), self.on_enter)
         world.subscribe((world.leave, self.room), self.on_leave)
 
-        out = yield self.look()
-        return out
+        yield self.look()
 
     @classmethod
     @coroutine

@@ -47,10 +47,7 @@ class WebSocket(websocket.WebSocketHandler):
             sess = Session(self)
             self.user = yield mud.User.get(sess, self.name, self.quest)
 
-            desc = yield self.user.look()
-            self.write_json({
-                'message': desc
-            })
+            yield self.user.look()
         else:
             logger.warning('extra message to handle_greeting: %s', message)
 
@@ -60,23 +57,13 @@ class WebSocket(websocket.WebSocketHandler):
         parts = message.split()
 
         if parts[0] == 'look':
-            desc = yield self.user.look()
-
-            self.write_json({
-                'message': desc
-            })
+            yield self.user.look()
 
         if parts[0] == 'go':
-            message = yield self.user.go(parts[1])
-
-            self.write_json({
-                'message': message
-            })
+            yield self.user.go(parts[1])
 
         else:
-            self.write_json({
-                'message': '.. what?'
-            })
+            self.user.message('.. what?')
 
     @coroutine
     def on_message(self, message):
