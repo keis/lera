@@ -2,8 +2,9 @@ from tornado.gen import coroutine, Task
 from tornado.ioloop import IOLoop
 import time
 import logging
-import riak
 import smoke
+import riak
+import lang
 
 logger = logging.getLogger('mud')
 starting_room = 'Tp10Fhl12GliqHtbRaBf86hPeKX'
@@ -91,8 +92,11 @@ class User(object):
             'message': frmt % args
         })
 
-    def describe(self, room):
-        return room['description']
+    def describe(self, room, occupants):
+        out = room['description']
+        if len(occupants) > 0:
+            out += '\n\nYou see %s here' % lang._and([o['name'] for o in occupants])
+        return out
 
     @coroutine
     def find_exit(self, label):
@@ -112,11 +116,23 @@ class User(object):
         q.link({'tag': 'room'})
         q.map({
             'language': 'javascript',
+            'source': 'function (v) { var data = Riak.mapValuesJson(v); data[0].key = v.key; return [data[0]]; }',
+            'keep': True
+        })
+        q.reduce({
+            'language': 'javascript',
+            'source': 'function (v) { return [["occupants", v[0].key]]; }'
+        })
+        q.map({
+            'language': 'javascript',
+            'source': 'function (v) { var data = Riak.mapValuesJson(v); return data[0].occupants.map(function (o) { return ["users", o]; }); }'
+        })
+        q.map({
+            'language': 'javascript',
             'name': 'Riak.mapValuesJson'
         })
-        # TODO: Load occupants and display somehow.
-        (room,) = yield self.session.db.mapred(q)
-        self.message(self.describe(room))
+        ((room,), occupants) = yield self.session.db.mapred(q)
+        self.message(self.describe(room, occupants))
 
     @coroutine
     def go(self, label):

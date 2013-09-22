@@ -59,11 +59,11 @@ class WebSocket(websocket.WebSocketHandler):
         if parts[0] == 'look':
             yield self.user.look()
 
-        if parts[0] == 'go':
+        elif parts[0] == 'go':
             yield self.user.go(parts[1])
 
         else:
-            self.user.message('.. what?')
+            self.user.message('.. what? %s' % parts[0])
 
     @coroutine
     def on_message(self, message):
