@@ -10,9 +10,32 @@
             #messages .command {
                 color: #aaa;
             }
+
+            #status {
+                position: fixed;
+                right: 0;
+                top: 0;
+                text-align: right;
+                min-width: 120px;
+                height: 20px;
+                background: yellow;
+            }
+
+            #status[data-status="idle"] {
+                background: gray;
+            }
+
+            #status[data-status="connected"] {
+                background: green;
+            }
+
+            #status[data-status="error"] {
+                background: red;
+            }
         </style>
     </head>
     <body>
+        <div id="status" data-status="idle">idle</div>
         <div id="container">
             <ul id="messages">
             </ul>
@@ -23,12 +46,26 @@
         </div>
         <script type="text/javascript">
             (function () {
+                'use strict';
+
                 var sock = new WebSocket('ws://localhost:8888/socket'),
                     form = document.querySelector('form[name=command]'),
                     commandInput = form.querySelector('input[name=command]'),
-                    messages = document.querySelector('#messages');
+                    messages = document.querySelector('#messages'),
+                    user = {},
+                    loggedIn = false,
+                    prompt,
+                    setStatus;
 
-                commandInput.disabled = true;
+                setStatus = (function () {
+                    var statusEl = document.querySelector('#status');
+
+                    return function setStatus (status, message) {
+                        console.log('status changed', status);
+                        statusEl.setAttribute('data-status', status);
+                        statusEl.textContent = message || status;
+                    };
+                })();
 
                 function showMessage (message, command) {
                     var msg = document.createElement('p');
@@ -39,21 +76,72 @@
                     messages.appendChild(msg);
                 }
 
+                function sendMessage (message) {
+                    showMessage(message, true);
+                    sock.send(message);
+
+                    if (!loggedIn && prompt) {
+                        console.log('message during login', message);
+                        if (prompt.match(/name$/)) {
+                            user.name = message;
+                        } else if (prompt.match(/quest$/)) {
+                            user.quest = message;
+                        }
+                    }
+                }
+
+                function loadUserData () {
+                    var data = window.localStorage['user'];
+                    if (data) {
+                        try {
+                            user = JSON.parse(data);
+                        } catch (err) {
+                            console.log(err);
+                        }
+                    }
+                    console.log('user information', user);
+                }
+
+                function saveUserData () {
+                    console.log('saving user information', user);
+                    window.localStorage['user'] = JSON.stringify(user);
+                }
+
+                loadUserData();
+                setStatus('connecting');
+                commandInput.disabled = true;
+
                 sock.onmessage = function (event) {
                     var data = JSON.parse(event.data);
+
+                    prompt = data.prompt || '';
+
                     console.log('message', data);
                     showMessage(data.message);
-                    commandInput.disabled = (data.prompt === '<disabled>')
-                    commandInput.placeholder = data.prompt || '';
+                    commandInput.disabled = (prompt === '<disabled>')
+                    commandInput.placeholder = prompt;
+
+                    if (!loggedIn && user.name && user.quest) {
+                        if (prompt.match(/name$/)) {
+                            sendMessage(user.name);
+                        } else if (prompt.match(/quest$/)) {
+                            sendMessage(user.quest);
+                        } else if (data.message.match(/welcome/i)) {
+                            loggedIn = true;
+                            saveUserData();
+                        }
+                    }
                 };
 
                 sock.onclose = function (event) {
-                    console.log('connection close');
+                    setStatus('error', 'disconnected');
+                    loggedIn = false,
                     commandInput.disabled = true;
                 };
 
                 sock.onopen = function (event) {
-                    console.log('connected');
+                    setStatus('connected');
+                    loggedIn = false,
                     commandInput.disabled = false;
                     commandInput.placeholder = '';
                 };
@@ -62,8 +150,7 @@
                     var cmd = commandInput.value;
                     event.preventDefault();
                     if (cmd) {
-                        showMessage(cmd, true);
-                        sock.send(cmd);
+                        sendMessage(cmd);
                         commandInput.value = '';
                         commandInput.disabled = true;
                     }

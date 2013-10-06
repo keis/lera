@@ -46,7 +46,7 @@ class WebSocket(websocket.WebSocketHandler):
             self.quest = message
             sess = Session(self)
             self.user = yield mud.User.get(sess, self.name, self.quest)
-
+            self.user.message('Welcome %s', self.user.name)
             yield self.user.look()
         else:
             logger.warning('extra message to handle_greeting: %s', message)
