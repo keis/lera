@@ -1,0 +1,10 @@
+{
+  "name": "lera client",
+  "version": "1.0.0",
+  "dependencies": {
+    "requirejs": "2.1.x",
+    "jquery": "2.0.x",
+    "backbone-amd": "1.0.x",
+    "underscore-amd": "1.5.x"
+  }
+}
