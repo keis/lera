@@ -78,8 +78,15 @@ class WebSocket(websocket.WebSocketHandler):
             logger.exception('error when processing message')
 
 
+class DevStatic(web.StaticFileHandler):
+    def set_extra_headers(self, path):
+        self.set_header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0')
+
+
 application = web.Application([
-    ('/socket', WebSocket)
+    ('/socket', WebSocket),
+    ('/js/(.*)', DevStatic, {'path': './js'}),
+    ('/(.*)', DevStatic, {'path': '.', 'default_filename': 'test.html'})
 ])
 
 if __name__ == "__main__":
