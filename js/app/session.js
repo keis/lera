@@ -60,7 +60,6 @@ define(function () {
             }
 
             function onrecv(data) {
-                console.log("ON RECV");
                 var prompt = data.prompt || '';
 
                 if (prompt.match(/name$/)) {
@@ -69,7 +68,6 @@ define(function () {
                     sock.send(user.quest);
                 } else if (data.message.match(/welcome/i)) {
                     sock.off('recv', onrecv);
-                    saveUserData();
                 }
             }
 

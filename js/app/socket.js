@@ -7,22 +7,36 @@ define(['backbone', 'underscore'], function (Backbone, _) {
 
         _.extend(self, Backbone.Events);
 
-        sock.onmessage = function (event) {
+        function reconnect() {
+            sock = new WebSocket(url);
+            attach(sock);
+        }
+
+        function onmessage(event) {
             self.trigger('recv', JSON.parse(event.data));
         };
 
-        sock.onopen = function (event) {
+        function onopen(event) {
             self.trigger('open');
         }
 
-        sock.onclose = function (event) {
+        function onclose(event) {
             self.trigger('close');
+            setTimeout(reconnect, 500);
         };
+
+        function attach(s) {
+            s.onmessage = onmessage;
+            s.onopen = onopen;
+            s.onclose = onclose;
+        }
 
         self.send = function (data) {
             self.trigger('send', data);
             sock.send(data);
         }
+
+        attach(sock);
 
         return self;
     };

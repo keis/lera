@@ -15,13 +15,6 @@ define([
             socket: sock
         });
 
-        try {
-            session.resume(sock);
-        } catch (err) {
-            console.log("Could not resume session");
-            session.watch(sock);
-        }
-
         setStatus('connecting');
 
         sock.on('close', function () {
@@ -29,6 +22,13 @@ define([
         });
 
         sock.on('open', function () {
+            try {
+                session.resume(sock);
+            } catch (err) {
+                console.log("Could not resume session", err);
+                session.watch(sock);
+            }
+
             setStatus('connected');
         });
     }
