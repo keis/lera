@@ -1,4 +1,6 @@
 define(['backbone', 'underscore'], function (Backbone, _) {
+    'use strict';
+
     function Socket (url) {
         var self = {},
             sock = new WebSocket(url);

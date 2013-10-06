@@ -1,5 +1,6 @@
 define(['jquery'], function ($) {
     'use strict';
+
     var $status = $('#status');
 
     return function setStatus (status, message) {
