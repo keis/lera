@@ -24,6 +24,10 @@ define(function () {
     }
 
     return {
+        forget: function () {
+            saveUserData({});
+        },
+
         watch: function (sock) {
             var prompt = '',
                 user = {};

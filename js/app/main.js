@@ -15,6 +15,11 @@ define([
             socket: sock
         });
 
+        $('#status').on('click', '[data-action="logout"]', function () {
+            session.forget();
+            sock.hup();
+        });
+
         setStatus('connecting');
 
         sock.on('close', function () {

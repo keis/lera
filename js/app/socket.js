@@ -36,6 +36,10 @@ define(['backbone', 'underscore'], function (Backbone, _) {
             sock.send(data);
         }
 
+        self.hup = function () {
+            sock.close();
+        }
+
         attach(sock);
 
         return self;

@@ -35,7 +35,7 @@ define(['backbone', 'jquery'], function (Backbone, $) {
         },
 
         showMessage: function (message, command) {
-            var $msg = $('<p>');
+            var $msg = $('<li>');
             $msg.text(message);
             if (command) {
                 $msg.addClass('command');

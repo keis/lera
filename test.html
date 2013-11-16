@@ -5,6 +5,9 @@
         <style>
             #messages {
                 font-family: Arial, sans-serif;
+                height: 300px;
+                overflow: auto;
+                list-style: none;
             }
 
             #messages .command {
@@ -32,10 +35,29 @@
             #status[data-status="error"] {
                 background: red;
             }
+
+            #menu {
+                margin-top: 0px;
+                background: gray;
+                display: none;
+                opacity: 0;
+                transition: opacity 0.4s;
+                list-style: none;
+            }
+
+            #status:hover #menu {
+                opacity: 1;
+                display: block;
+            }
         </style>
     </head>
     <body>
-        <div id="status" data-status="idle">idle</div>
+        <div id="status" data-status="idle">
+            <span class="message">idle</span>
+            <ul id="menu">
+                <li data-action="logout">logout</li>
+            </ul>
+        </div>
         <div id="container">
             <ul id="messages">
             </ul>
