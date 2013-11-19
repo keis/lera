@@ -93,9 +93,10 @@ class User(object):
         })
 
     def describe(self, room, occupants):
+        others = [o for o in occupants if o['name'] != self.name]
         out = room['description']
-        if len(occupants) > 0:
-            out += '\n\nYou see %s here' % lang._and([o['name'] for o in occupants])
+        if len(others) > 0:
+            out += '\n\nYou see %s here' % lang._and([o['name'] for o in others])
         return out
 
     @coroutine
@@ -123,15 +124,21 @@ class User(object):
             'language': 'javascript',
             'source': 'function (v) { return [["occupants", v[0].key]]; }'
         })
+        q.reduce({
+            'language': 'javascript',
+            'name': 'Riak.filterNotFound'
+        })
         q.map({
             'language': 'javascript',
-            'source': 'function (v) { var data = Riak.mapValuesJson(v); return data[0].occupants.map(function (o) { return ["users", o]; }); }'
+            'source': 'function (v) { var data = Riak.mapValuesJson(v); oc = data[0].occupants; return oc && oc.map(function (o) { return ["users", o]; }); }'
         })
         q.map({
             'language': 'javascript',
             'name': 'Riak.mapValuesJson'
         })
-        ((room,), occupants) = yield self.session.db.mapred(q)
+        data = yield self.session.db.mapred(q)
+        logger.debug("look data %r", data)
+        ((room,), occupants) = data
         self.message(self.describe(room, occupants))
 
     @coroutine
@@ -174,6 +181,7 @@ class User(object):
             user = cls(session, {'name': name, 'quest': quest})
             user.room = starting_room
             yield user.save()
+            yield Room.add_occupant(session.db, user.room, user.key)
         else:
             logger.info('user loaded: %s', data['name'])
             user = cls(session, data)
