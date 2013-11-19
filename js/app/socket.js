@@ -3,7 +3,8 @@ define(['backbone', 'underscore'], function (Backbone, _) {
 
     function Socket (url) {
         var self = {},
-            sock = new WebSocket(url);
+            sock = new WebSocket(url),
+            attempt = 1;
 
         _.extend(self, Backbone.Events);
 
@@ -18,11 +19,12 @@ define(['backbone', 'underscore'], function (Backbone, _) {
 
         function onopen(event) {
             self.trigger('open');
+            attempt = 1;
         }
 
         function onclose(event) {
             self.trigger('close');
-            setTimeout(reconnect, 500);
+            setTimeout(reconnect, 500 * Math.max(attempt, 10));
         };
 
         function attach(s) {

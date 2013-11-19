@@ -70,7 +70,7 @@ define(function () {
                     sock.send(user.name);
                 } else if (prompt.match(/quest$/)) {
                     sock.send(user.quest);
-                } else if (data.message.match(/welcome/i)) {
+                    console.log("Session resumed");
                     sock.off('recv', onrecv);
                 }
             }
