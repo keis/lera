@@ -45,8 +45,17 @@ class WebSocket(websocket.WebSocketHandler):
         elif self.quest is None:
             self.quest = message
             sess = Session(self)
-            self.user = yield mud.User.get(sess, self.name, self.quest)
-            self.user.message('Welcome %s', self.user.name)
+            try:
+                self.user = yield mud.User.get(sess, self.name, self.quest)
+            except:
+                logger.info('Rejecting login', exc_info=True)
+                self.write_json({
+                    'message': "That doesn't sound right"
+                })
+                self.close()
+                return
+
+            self.user.message('Welcome %s. Your quest is to %s', self.user.name, self.user.quest)
             yield self.user.look()
         else:
             logger.warning('extra message to handle_greeting: %s', message)
@@ -67,7 +76,7 @@ class WebSocket(websocket.WebSocketHandler):
 
     @coroutine
     def on_message(self, message):
-        logger.info('processing message: %s', message)
+        logger.info('processing message: [%s]', message)
         try:
             if not self.user:
                 yield self.handle_greeting(message)

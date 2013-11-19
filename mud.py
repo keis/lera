@@ -184,6 +184,8 @@ class User(object):
             yield Room.add_occupant(session.db, user.room, user.key)
         else:
             logger.info('user loaded: %s', data['name'])
+            if data['quest'] != quest:
+                raise ValueError("bad quest (was: %r, expected: %r)" % (data['quest'], quest))
             user = cls(session, data)
             user.room = data.links[0].key
 
