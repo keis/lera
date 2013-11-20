@@ -31,27 +31,32 @@ class Room(object):
     @coroutine
     def remove_occupant(cls, db, key, occupant):
         try:
-            occupants = yield db.get('occupants', key)
+            data = yield db.get('occupants', key)
+            occupants = data['occupants']
         except KeyError as e:
             pass
         else:
             try:
-                occupants['occupants'].remove(occupant)
+                occupants.remove(occupant)
             except ValueError:
                 pass
             else:
-                yield db.save('occupants', key, occupants)
+                logger.debug('updating occupants of %s, %r', key, occupants)
+                yield db.save('occupants', key, data)
                 world.publish((world.leave, key), user=occupant, room=key)
 
     @classmethod
     @coroutine
     def add_occupant(cls, db, key, occupant):
         try:
-            occupants = yield db.get('occupants', key)
+            data = yield db.get('occupants', key)
+            occupants = data['occupants']
         except KeyError as e:
-            occupants = {'occupants': []}
-        occupants['occupants'].append(occupant)
-        yield db.save('occupants', key, occupants)
+            occupants = []
+            data = {'occupants': occupants}
+        occupants.append(occupant)
+        logger.debug('updating occupants of %s, %r', key, occupants)
+        yield db.save('occupants', key, data)
         world.publish((world.enter, key), user=occupant, room=key)
 
 
@@ -139,7 +144,7 @@ class User(object):
         })
         q.map({
             'language': 'javascript',
-            'source': 'function (v) { var data = Riak.mapValuesJson(v); oc = data[0].occupants; return oc && oc.map(function (o) { return ["users", o]; }); }'
+            'source': 'function (v) { var data = Riak.mapValuesJson(v); oc = data[0].occupants || []; return oc.map(function (o) { return ["users", o]; }); }'
         })
         q.map({
             'language': 'javascript',

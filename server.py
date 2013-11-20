@@ -52,6 +52,7 @@ class WebSocket(websocket.WebSocketHandler):
                 self.write_json({
                     'message': "That doesn't sound right"
                 })
+                del self.user
                 self.close()
                 return
 
