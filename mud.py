@@ -79,13 +79,11 @@ class User(object):
     def _on_leave(self, user=None, room=None):
         if room != self.room:
             raise smoke.Disconnect()
-        if user != self.key and room == self.room:
+        if user != self.key:
             self.message('%s leaves the room', user)
 
     def _on_say(self, name=None, message=None):
-        if name == self.name:
-            self.message('You say %s' % (message,))
-        else:
+        if name != self.name:
             self.message('%s says %s' % (name, message))
 
 

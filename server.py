@@ -25,6 +25,9 @@ class WebSocket(websocket.WebSocketHandler):
         self.start()
 
     def write_json(self, data):
+        if self.ws_connection is None:
+            logger.error('Tried to write message but disconnected')
+            return
         self.write_message(json.dumps(data))
 
     def start(self):
