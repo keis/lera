@@ -14,6 +14,6 @@ room 'forest', ->
     link ['rooms', 'start'], 'east'
     link ['rooms', 'brook'], 'north'
 
-room 'glade_west', ->
+room 'brook', ->
     this.description = "Blah blah blah. it's a brook."
     link ['rooms', 'forest'], 'south'

@@ -55,7 +55,7 @@ class WebSocket(websocket.WebSocketHandler):
                 self.close()
                 return
 
-            self.user.message('Welcome %s. Your quest is to %s', self.user.name, self.user.quest)
+            self.user.message('Welcome %s. Your quest is %s', self.user.name, self.user.quest)
             yield self.user.look()
         else:
             logger.warning('extra message to handle_greeting: %s', message)
