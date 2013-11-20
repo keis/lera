@@ -7,7 +7,7 @@ import riak
 import lang
 
 logger = logging.getLogger('mud')
-starting_room = 'Tp10Fhl12GliqHtbRaBf86hPeKX'
+starting_room = 'start'
 
 
 class TornadoBroker(smoke.Broker):
