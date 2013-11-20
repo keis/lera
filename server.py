@@ -71,6 +71,9 @@ class WebSocket(websocket.WebSocketHandler):
         elif parts[0] == 'go':
             yield self.user.go(parts[1])
 
+        elif parts[0] == 'say':
+            yield self.user.say(' '.join(parts[1:]))
+
         else:
             self.user.message('.. what? %s' % parts[0])
 

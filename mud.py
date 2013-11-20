@@ -19,6 +19,7 @@ class TornadoBroker(smoke.Broker):
 class World(TornadoBroker):
     enter = smoke.signal('enter')
     leave = smoke.signal('leave')
+    say = smoke.signal('say')
 
 
 world = World()
@@ -60,6 +61,7 @@ class User(object):
         self.data = data
         self.on_enter = smoke.weak(self._on_enter)
         self.on_leave = smoke.weak(self._on_leave)
+        self.on_say = smoke.weak(self._on_say)
 
     def _on_enter(self, user=None, room=None):
         if room != self.room:
@@ -74,6 +76,13 @@ class User(object):
             raise smoke.Disconnect()
         if user != self.key and room == self.room:
             self.message('%s leaves the room', user)
+
+    def _on_say(self, name=None, message=None):
+        if name == self.name:
+            self.message('You say %s' % (message,))
+        else:
+            self.message('%s says %s' % (name, message))
+
 
     @property
     def key(self):
@@ -138,8 +147,12 @@ class User(object):
         })
         data = yield self.session.db.mapred(q)
         logger.debug("look data %r", data)
-        ((room,), occupants) = data
+        ((room,), occupants) = data if len(data) == 2 else (data[0], [])
         self.message(self.describe(room, occupants))
+
+    @coroutine
+    def say(self, message):
+        world.publish((world.say, self.room), name=self.name, message=message)
 
     @coroutine
     def go(self, label):
@@ -155,6 +168,7 @@ class User(object):
 
         world.disconnect((world.enter, self.room), self.on_enter)
         world.disconnect((world.leave, self.room), self.on_leave)
+        world.disconnect((world.say, self.room), self.on_say)
 
         # Update room link
         self.room = key[1]
@@ -166,6 +180,7 @@ class User(object):
 
         world.subscribe((world.enter, self.room), self.on_enter)
         world.subscribe((world.leave, self.room), self.on_leave)
+        world.subscribe((world.say, self.room), self.on_say)
 
         yield self.look()
 
@@ -191,6 +206,7 @@ class User(object):
 
         world.subscribe((world.enter, user.room), user.on_enter)
         world.subscribe((world.leave, user.room), user.on_leave)
+        world.subscribe((world.say, user.room), user.on_say)
 
         return user
 
