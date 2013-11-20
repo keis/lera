@@ -11,7 +11,7 @@ define([
             view;
 
         view = new View({
-            el: $('#container'),
+            el: $('body'),
             socket: sock
         });
 

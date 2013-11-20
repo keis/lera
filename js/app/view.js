@@ -35,12 +35,15 @@ define(['backbone', 'jquery'], function (Backbone, $) {
         },
 
         showMessage: function (message, command) {
-            var $msg = $('<li>');
-            $msg.text(message);
+            var $messages = this.$('#messages'),
+                $msg = $('<li>');
+
+            $('<pre>').text(message).appendTo($msg);
             if (command) {
                 $msg.addClass('command');
             }
-            $msg.appendTo(this.$('#messages'));
+            $msg.appendTo($messages);
+            $messages.scrollTop($messages.get(0).scrollHeight);
         },
 
         sendCommand: function (event) {

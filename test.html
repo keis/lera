@@ -3,7 +3,15 @@
     <head>
         <title>websocket</title>
         <style>
+            body {
+                margin: 0;
+                display: flex;
+                height: 100vh;
+                flex-direction: column;
+            }
+
             #messages {
+                flex: 1;
                 font-family: Arial, sans-serif;
                 height: 300px;
                 overflow: auto;
@@ -12,6 +20,14 @@
 
             #messages .command {
                 color: #aaa;
+            }
+
+            form[name=command] {
+                padding: 16px;
+            }
+
+            form[name=command] input[name=command] {
+                width: 400px;
             }
 
             #status {
@@ -58,14 +74,12 @@
                 <li data-action="logout">logout</li>
             </ul>
         </div>
-        <div id="container">
-            <ul id="messages">
-            </ul>
-            <form name="command">
-                <input name="command"/>
-                <input type="submit" style="visibility: collapse"/>
-            </form>
-        </div>
+        <ul id="messages">
+        </ul>
+        <form name="command">
+            <input name="command"/>
+            <input type="submit" style="visibility: collapse"/>
+        </form>
         <script data-main="js/main" src="js/require.js"></script>
     </body>
 </html>
