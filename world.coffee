@@ -17,3 +17,4 @@ room 'forest', ->
 room 'brook', ->
     this.description = "Blah blah blah. it's a brook."
     link ['rooms', 'forest'], 'south'
+    link ['rooms', 'forest'], 'crazy'

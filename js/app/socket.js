@@ -24,7 +24,8 @@ define(['backbone', 'underscore'], function (Backbone, _) {
 
         function onclose(event) {
             self.trigger('close');
-            setTimeout(reconnect, 500 * Math.max(attempt, 10));
+            attempt += 1;
+            setTimeout(reconnect, 500 * Math.min(attempt, 10));
         };
 
         function attach(s) {

@@ -52,7 +52,7 @@ define(['backbone', 'jquery'], function (Backbone, $) {
 
             if (cmd) {
                 this.socket.send(cmd);
-                this.$input.val('').prop('disabled', true);
+                this.$input.val('');
             }
             return false;
         }
