@@ -16,6 +16,9 @@ class WebSocket(websocket.WebSocketHandler):
         self.session = Session(self)
         self.session.start()
 
+    def close(self):
+        logger.info('WebSocket session closed (Session %s)', id(self.session));
+
     def write_json(self, data):
         if self.ws_connection is None:
             logger.error('Tried to write message but disconnected')
@@ -32,10 +35,11 @@ class WebSocket(websocket.WebSocketHandler):
                     yield self.session.handle_greeting(message)
                 except:
                     self.close()
+                    raise
 
             else:
                 yield self.session.handle_command(message)
-        except Exception as e:
+        except:
             logger.exception('error when processing message')
         else:
             logger.debug('message processed %s', s)
