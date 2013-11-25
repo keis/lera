@@ -1,7 +1,6 @@
 from tornado.gen import coroutine
 import logging
-import riak
-import mud
+from . import riak, mud
 
 logger = logging.getLogger('session')
 

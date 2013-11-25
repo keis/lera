@@ -15,7 +15,7 @@ env/freeze.txt: requirements.txt
 	${VIRTUAL} pip freeze > $@
 
 start-server: env/freeze.txt
-	${VIRTUAL} python server.py
+	${VIRTUAL} python -m lera
 
 node_modules/.bin/riak-genesis node_modules/.bin/coffee:
 	npm install riak-genesis coffee-script

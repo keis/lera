@@ -1,11 +1,10 @@
-from tornado import ioloop, web, websocket
+from tornado import web, websocket
 from tornado.gen import coroutine
 import logging
 import itertools
 import json
-from session import Session
+from .session import Session
 
-logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger('server')
 
 seq = itertools.count()
@@ -52,7 +51,3 @@ application = web.Application([
     ('/js/(.*)', DevStatic, {'path': './js'}),
     ('/(.*)', DevStatic, {'path': '.', 'default_filename': 'test.html'})
 ])
-
-if __name__ == "__main__":
-    application.listen(8888)
-    ioloop.IOLoop.instance().start()

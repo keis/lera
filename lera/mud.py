@@ -3,8 +3,7 @@ from tornado.ioloop import IOLoop
 import time
 import logging
 import smoke
-import riak
-import lang
+from . import riak, lang
 
 logger = logging.getLogger('mud')
 starting_room = 'start'
