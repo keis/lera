@@ -18,6 +18,7 @@ start-server: env/freeze.txt
 	${VIRTUAL} python -m lera
 
 node_modules/.bin/riak-genesis node_modules/.bin/coffee:
+	mkdir -p node_modules
 	npm install riak-genesis coffee-script
 
 create-world: node_modules/.bin/riak-genesis node_modules/.bin/coffee
