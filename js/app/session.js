@@ -1,3 +1,8 @@
+/**
+ * Intercepts user credentials and stores in local storage. Credentials
+ * are replayed when reconnected.
+ */
+
 define(function () {
     function loadUserData () {
         var data = window.localStorage['user'],
@@ -32,7 +37,7 @@ define(function () {
             var prompt = '',
                 user = {};
 
-            function onrecv (data) {
+            function ondata (data) {
                 prompt = data.prompt || '';
             }
 
@@ -45,7 +50,7 @@ define(function () {
                     user.quest = message;
                 } else {
                     sock.off('send', onsend);
-                    sock.off('recv', onrecv);
+                    sock.off('data', ondata);
                 }
 
                 if (isValidUser(user)) {
@@ -54,7 +59,7 @@ define(function () {
             }
 
             sock.on('send', onsend);
-            sock.on('recv', onrecv);
+            sock.on('data', ondata);
         },
 
         resume: function (sock) {
@@ -63,7 +68,7 @@ define(function () {
                 throw new Error('no existing user data');
             }
 
-            function onrecv(data) {
+            function ondata(data) {
                 var prompt = data.prompt || '';
 
                 if (prompt.match(/name$/)) {
@@ -71,11 +76,11 @@ define(function () {
                 } else if (prompt.match(/quest$/)) {
                     sock.send(user.quest);
                     console.log("Session resumed");
-                    sock.off('recv', onrecv);
+                    sock.off('data', ondata);
                 }
             }
 
-            sock.on('recv', onrecv);
+            sock.on('data', ondata);
         }
     };
 });
