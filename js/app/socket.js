@@ -1,20 +1,25 @@
+/**
+ * A wrapper around the builtin WebSocket to provide automatic reconnect
+ * and backbone style events.
+ */
+
 define(['backbone', 'underscore'], function (Backbone, _) {
     'use strict';
 
     function Socket (url) {
-        var self = {},
-            sock = new WebSocket(url),
-            attempt = 1;
+        var self = this,
+            attempt = 1,
+            sock;
 
-        _.extend(self, Backbone.Events);
-
-        function reconnect() {
+        function connect() {
             sock = new WebSocket(url);
-            attach(sock);
+            sock.onmessage = onmessage;
+            sock.onopen = onopen;
+            sock.onclose = onclose;
         }
 
         function onmessage(event) {
-            self.trigger('recv', JSON.parse(event.data));
+            self.trigger('data', JSON.parse(event.data));
         };
 
         function onopen(event) {
@@ -25,28 +30,22 @@ define(['backbone', 'underscore'], function (Backbone, _) {
         function onclose(event) {
             self.trigger('close');
             attempt += 1;
-            setTimeout(reconnect, 500 * Math.min(attempt, 10));
+            setTimeout(connect, 500 * Math.min(attempt, 10));
         };
 
-        function attach(s) {
-            s.onmessage = onmessage;
-            s.onopen = onopen;
-            s.onclose = onclose;
-        }
-
-        self.send = function (data) {
-            self.trigger('send', data);
-            sock.send(data);
-        }
-
-        self.hup = function () {
-            sock.close();
-        }
-
-        attach(sock);
-
-        return self;
+        connect();
     };
+
+    Socket.prototype.send = function send(data) {
+        this.trigger('send', data);
+        this.send(data);
+    }
+
+    Socket.prototype.hup = function hup() {
+        this.close()
+    }
+
+    _.extend(Socket.prototype, Backbone.Events);
 
     return Socket;
 });

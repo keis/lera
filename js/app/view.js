@@ -24,7 +24,7 @@ define(['backbone', 'jquery'], function (Backbone, $) {
                 this.showMessage(message, true);
             });
 
-            this.listenTo(this.socket, 'recv', function (data) {
+            this.listenTo(this.socket, 'data', function (data) {
                 var prompt = data.prompt || '';
 
                 console.log('message', data);
