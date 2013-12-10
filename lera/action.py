@@ -7,6 +7,7 @@ This module describe the various actions a actor can take
 from tornado.gen import coroutine
 import logging
 from . import riak
+from .mud import Room
 
 logger = logging.getLogger('session')
 
@@ -55,7 +56,7 @@ def go(session, label):
     user = session.user
     # Find room to go to
     try:
-        key = yield user.find_exit(label)
+        key = yield user.find_exit(session.db, label)
     except KeyError:
         return session.message("You can't go %s", label)
 
@@ -68,12 +69,12 @@ def go(session, label):
     session.world.disconnect((session.world.say, user.room), session.on_say)
 
     # Update room link
-    self.room = key[1]
-    yield self.save()
+    user.room = key[1]
+    yield user.save(session.db)
 
     # Add to new room
     yield Room.add_occupant(session.db, user.room, user.key)
-    logger.info('%s moved to %s', self.key, self.room)
+    logger.info('%s moved to %s', user.key, user.room)
 
     session.world.subscribe((session.world.enter, user.room), session.on_enter)
     session.world.subscribe((session.world.leave, user.room), session.on_leave)

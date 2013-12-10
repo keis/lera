@@ -40,7 +40,7 @@ class WebSocket(websocket.WebSocketHandler):
             else:
                 yield self.session.handle_command(message)
         except:
-            logger.exception('error when processing message')
+            logger.exception('error when processing message %s', s)
         else:
             logger.debug('message processed %s', s)
 

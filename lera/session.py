@@ -29,13 +29,13 @@ class Session(object):
             self.message('%s enters the room', user)
 
     def _on_leave(self, user=None, room=None):
-        if room != self.room:
+        if room != self.user.room:
             raise smoke.Disconnect()
-        if user != self.key:
+        if user != self.user.key:
             self.message('%s leaves the room', user)
 
     def _on_say(self, name=None, message=None):
-        if name != self.name:
+        if name != self.user.name:
             self.message('%s says %s' % (name, message))
 
     def message(self, frmt, *args):
