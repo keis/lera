@@ -33,12 +33,16 @@ define(['backbone', 'underscore'], function (Backbone, _) {
             setTimeout(connect, 500 * Math.min(attempt, 10));
         };
 
+        this._send = function send(data) {
+            sock.send(data);
+        };
+
         connect();
     };
 
     Socket.prototype.send = function send(data) {
         this.trigger('send', data);
-        this.send(data);
+        this._send(data);
     }
 
     Socket.prototype.hup = function hup() {
