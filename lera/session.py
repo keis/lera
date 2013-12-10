@@ -49,6 +49,22 @@ class Session(object):
             'prompt': 'Enter your name'
         })
 
+    def disconnect_room(self):
+        '''Helper to disconnect signal subscriptions of the current room'''
+
+        room = self.user.room
+        self.world.enter(room).disconnect(self.on_enter)
+        self.world.leave(room).disconnect(self.on_leave)
+        self.world.say(room).disconnect(self.on_say)
+
+    def subscribe_room(self):
+        '''Helper to setup signal subscriptions of the current room'''
+
+        room = self.user.room
+        self.world.enter(room).subscribe(self.on_enter)
+        self.world.leave(room).subscribe(self.on_leave)
+        self.world.say(room).subscribe(self.on_say)
+
     @coroutine
     def handle_greeting(self, message):
         if self.name is None:
@@ -64,10 +80,7 @@ class Session(object):
             self.quest = message
             try:
                 self.user = yield mud.User.get(self.db, self.name, self.quest)
-
-                self.world.subscribe((self.world.enter, self.user.room), self.on_enter)
-                self.world.subscribe((self.world.leave, self.user.room), self.on_leave)
-                self.world.subscribe((self.world.say, self.user.room), self.on_say)
+                self.subscribe_room()
 
             except:
                 logger.info('Rejecting login', exc_info=True)

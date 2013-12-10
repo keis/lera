@@ -48,7 +48,7 @@ def look(session, what=None):
 @coroutine
 def say(session, message):
     user = session.user
-    session.world.publish((world.say, user.room), name=user.name, message=message)
+    session.world.say(user.room, name=user.name, message=message)
 
 
 @coroutine
@@ -64,9 +64,7 @@ def go(session, label):
     # Remove from old room
     Room.remove_occupant(session.db, user.room, user.key)
 
-    session.world.disconnect((session.world.enter, user.room), session.on_enter)
-    session.world.disconnect((session.world.leave, user.room), session.on_leave)
-    session.world.disconnect((session.world.say, user.room), session.on_say)
+    session.disconnect_room()
 
     # Update room link
     user.room = key[1]
@@ -76,9 +74,7 @@ def go(session, label):
     yield Room.add_occupant(session.db, user.room, user.key)
     logger.info('%s moved to %s', user.key, user.room)
 
-    session.world.subscribe((session.world.enter, user.room), session.on_enter)
-    session.world.subscribe((session.world.leave, user.room), session.on_leave)
-    session.world.subscribe((session.world.say, user.room), session.on_say)
+    session.subscribe_room()
 
     yield look(session)
 

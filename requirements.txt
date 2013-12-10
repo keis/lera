@@ -1,2 +1,2 @@
 tornado
-smoke
+smoke==0.2.0

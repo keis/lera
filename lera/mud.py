@@ -16,9 +16,9 @@ class TornadoBroker(smoke.Broker):
 
 
 class World(TornadoBroker):
-    enter = smoke.signal('enter')
-    leave = smoke.signal('leave')
-    say = smoke.signal('say')
+    enter = smoke.signal('enter', 'room')
+    leave = smoke.signal('leave', 'room')
+    say = smoke.signal('say', 'room')
 
 world = World()
 
@@ -41,7 +41,7 @@ class Room(object):
             else:
                 logger.debug('updating occupants of %s, %r', key, occupants)
                 yield db.save('occupants', key, data)
-                world.publish((world.leave, key), user=occupant, room=key)
+                world.leave(key, user=occupant, room=key)
 
     @classmethod
     @coroutine
@@ -55,7 +55,7 @@ class Room(object):
         occupants.append(occupant)
         logger.debug('updating occupants of %s, %r', key, occupants)
         yield db.save('occupants', key, data)
-        world.publish((world.enter, key), user=occupant, room=key)
+        world.enter(key, user=occupant, room=key)
 
 
 class User(object):
