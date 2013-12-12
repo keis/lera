@@ -7,6 +7,14 @@ logger = logging.getLogger('session')
 
 riak_client = riak.Client('http://localhost:8098')
 
+MSG_NAME, MSG_QUEST = ({
+    'message': 'WHAT.. is your name?',
+    'prompt': 'Name'
+}, {
+    'message': 'And what is your quest?',
+    'prompt': 'Quest'
+})
+
 
 class Session(object):
     db = riak_client
@@ -18,6 +26,7 @@ class Session(object):
         self.name = None
         self.quest = None
 
+        # Create callbacks that have weakref to self
         self.on_enter = smoke.weak(self._on_enter)
         self.on_leave = smoke.weak(self._on_leave)
         self.on_say = smoke.weak(self._on_say)
@@ -25,12 +34,14 @@ class Session(object):
     def _on_enter(self, user=None, room=None):
         if room != self.user.room:
             raise smoke.Disconnect()
+
         if user != self.user.key:
             self.message('%s enters the room', user)
 
     def _on_leave(self, user=None, room=None):
         if room != self.user.room:
             raise smoke.Disconnect()
+
         if user != self.user.key:
             self.message('%s leaves the room', user)
 
@@ -44,10 +55,7 @@ class Session(object):
         })
 
     def start(self):
-        self.socket.write_json({
-            'message': 'WHAT.. is your name?',
-            'prompt': 'Enter your name'
-        })
+        self.socket.write_json(MSG_NAME)
 
     def disconnect_room(self):
         '''Helper to disconnect signal subscriptions of the current room'''
@@ -70,10 +78,7 @@ class Session(object):
         if self.name is None:
             logger.debug('(S%s) Got username "%s"', id(self), message)
             self.name = message
-            self.socket.write_json({
-                'message': 'And what is your quest?',
-                'prompt': 'Enter your quest'
-            })
+            self.socket.write_json(MSG_QUEST)
 
         elif self.quest is None:
             logger.debug('(S%s) Got quest "%s"', id(self), message)
@@ -90,7 +95,8 @@ class Session(object):
                 del self.user
                 raise
 
-            self.message('Welcome %s. Your quest is %s', self.user.name, self.user.quest)
+            self.message('Welcome %s. Your quest is %s',
+                         self.user.name, self.user.quest)
             yield action.look(self)
         else:
             logger.warning('extra message to handle_greeting: %s', message)

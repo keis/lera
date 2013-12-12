@@ -44,9 +44,9 @@ define(function () {
             function onsend (message) {
                 console.log('message during login', message);
 
-                if (prompt.match(/name$/)) {
+                if (prompt.match(/name$/i)) {
                     user.name = message;
-                } else if (prompt.match(/quest$/)) {
+                } else if (prompt.match(/quest$/i)) {
                     user.quest = message;
                 } else {
                     sock.off('send', onsend);
@@ -71,9 +71,9 @@ define(function () {
             function ondata(data) {
                 var prompt = data.prompt || '';
 
-                if (prompt.match(/name$/)) {
+                if (prompt.match(/name$/i)) {
                     sock.send(user.name);
-                } else if (prompt.match(/quest$/)) {
+                } else if (prompt.match(/quest$/i)) {
                     sock.send(user.quest);
                     console.log("Session resumed");
                     sock.off('data', ondata);
