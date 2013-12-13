@@ -30,6 +30,8 @@ class WebSocket(websocket.WebSocketHandler):
         s = next(seq)
         logger.info('processing message: [%s], %s', message, s)
         try:
+            # Delegate message processing to the session. Use the greeting
+            # script if no user is set else treat the message as a user command
             if not self.session.user:
                 try:
                     yield self.session.handle_greeting(message)

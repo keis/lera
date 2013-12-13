@@ -94,23 +94,44 @@ class User(object):
 
     @classmethod
     @coroutine
+    def create(cls, db, name, quest):
+        '''Create a new user with the given name and quest.
+
+        The user will be added to starting_room as defined by this module.
+        '''
+
+        logger.info('Creating new user: %s', name)
+
+        user = cls({'name': name, 'quest': quest})
+        user.room = starting_room
+
+        yield user.save(db)
+        yield Room.add_occupant(db, user.room, user.key)
+
+        return user
+
+    @classmethod
+    @coroutine
     def get(cls, db, name, quest):
+        '''Retrieve a user from the database.
+
+        If the given quest does not match the stored, ValueError is raised
+        '''
+
         key = name.lower()
 
         try:
             data = yield db.get('users', key)
         except KeyError:
-            logger.info('Creating new user: %s', name)
-            user = cls({'name': name, 'quest': quest})
-            user.room = starting_room
-            yield user.save(db)
-            yield Room.add_occupant(db, user.room, user.key)
-        else:
-            logger.info('user loaded: %s', data['name'])
-            if data['quest'] != quest:
-                raise ValueError("bad quest (was: %r, expected: %r)" % (data['quest'], quest))
-            user = cls(data)
-            user.room = data.links[0].key
+            logger.info("User not found %s", key)
+            raise
+
+        if data['quest'] != quest:
+            raise ValueError("bad quest (was: %r, expected: %r)" % (data['quest'], quest))
+
+        logger.info('user loaded: %s', data['name'])
+        user = cls(data)
+        user.room = data.links[0].key
 
         return user
 

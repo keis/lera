@@ -37,6 +37,10 @@ define(['backbone', 'underscore'], function (Backbone, _) {
             sock.send(data);
         };
 
+        this._close = function close() {
+            sock.close();
+        }
+
         connect();
     };
 
@@ -46,7 +50,7 @@ define(['backbone', 'underscore'], function (Backbone, _) {
     }
 
     Socket.prototype.hup = function hup() {
-        this.close()
+        this._close()
     }
 
     _.extend(Socket.prototype, Backbone.Events);

@@ -7,6 +7,7 @@ logger = logging.getLogger('session')
 
 riak_client = riak.Client('http://localhost:8098')
 
+# Messages sent during login
 MSG_NAME, MSG_QUEST = ({
     'message': 'WHAT.. is your name?',
     'prompt': 'Name'
@@ -50,9 +51,8 @@ class Session(object):
             self.message('%s says %s' % (name, message))
 
     def message(self, frmt, *args):
-        self.socket.write_json({
-            'message': frmt % args
-        })
+        '''Send a plaintext message to the client'''
+        self.socket.write_json({'message': frmt % args})
 
     def start(self):
         self.socket.write_json(MSG_NAME)
@@ -75,6 +75,11 @@ class Session(object):
 
     @coroutine
     def handle_greeting(self, message):
+        '''Handle a message during the greeting script.
+
+        Once all needed information has been collected `user` will be set.
+        '''
+
         if self.name is None:
             logger.debug('(S%s) Got username "%s"', id(self), message)
             self.name = message
@@ -84,16 +89,22 @@ class Session(object):
             logger.debug('(S%s) Got quest "%s"', id(self), message)
             self.quest = message
             try:
-                self.user = yield mud.User.get(self.db, self.name, self.quest)
-                self.subscribe_room()
-
+                # Get a existing user or create a new one
+                try:
+                    user = yield mud.User.get(self.db, self.name, self.quest)
+                except KeyError:
+                    user = yield mud.User.create(self.db, self.name, self.quest)
             except:
+                # Inform client of a rejected login
                 logger.info('Rejecting login', exc_info=True)
                 self.socket.write_json({
                     'message': "That doesn't sound right"
                 })
-                del self.user
+                self.user = None
                 raise
+
+            self.user = user
+            self.subscribe_room()
 
             self.message('Welcome %s. Your quest is %s',
                          self.user.name, self.user.quest)
