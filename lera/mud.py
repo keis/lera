@@ -83,14 +83,17 @@ class User(object):
 
     @coroutine
     def find_exit(self, db, label):
-        q = riak.MapReduce()
-        q.add(('users', self.key))
-        q.link({'tag': 'room'})
-        q.link({'tag': label})
-        result = yield db.mapred(q)
-        if result == []:
+        user = yield db.get('users', self.key)
+
+        roomlink = [x for x in user.links if x.tag == 'room'][0]
+        room = yield db.get('rooms', roomlink.key)
+
+        exitlinks = [x for x in room.links if x.tag == label]
+
+        if exitlinks == []:
             raise KeyError(label)
-        return result[0]
+
+        return exitlinks[0]
 
     @classmethod
     @coroutine

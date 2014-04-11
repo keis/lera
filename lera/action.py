@@ -14,34 +14,15 @@ logger = logging.getLogger('session')
 
 @coroutine
 def look(session, what=None):
-    q = riak.MapReduce()
-    q.add(('users', session.user.key))
-    q.link({'tag': 'room'})
-    q.map({
-        'language': 'javascript',
-        'source': 'function (v) { var data = Riak.mapValuesJson(v); data[0].key = v.key; return [data[0]]; }',
-        'keep': True
-    })
-    q.reduce({
-        'language': 'javascript',
-        'source': 'function (v) { return [["occupants", v[0].key]]; }'
-    })
-    q.reduce({
-        'language': 'javascript',
-        'name': 'Riak.filterNotFound'
-    })
-    q.map({
-        'language': 'javascript',
-        'source': 'function (v) { var data = Riak.mapValuesJson(v); oc = data[0].occupants || []; return oc.map(function (o) { return ["users", o]; }); }'
-    })
-    q.map({
-        'language': 'javascript',
-        'name': 'Riak.mapValuesJson'
-    })
-    data = yield session.db.mapred(q)
-    logger.debug("look data %r", data)
-    ((room,), occupants) = data if len(data) == 2 else (data[0], [])
+    user = yield session.db.get('users', session.user.key)
 
+    roomlink = [x for x in user.links if x.tag == 'room'][0]
+    room = yield session.db.get('rooms', roomlink.key)
+
+    occupants = yield session.db.get('occupants', roomlink.key)
+    occupants = [{'name': key} for key in occupants['occupants']]
+
+    logger.info('look data %r %r', room, occupants)
     session.message(session.user.describe(room, occupants))
 
 
