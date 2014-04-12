@@ -1,14 +1,50 @@
 from tornado.gen import coroutine
 from tornado.httpclient import AsyncHTTPClient, HTTPRequest, HTTPError
 from collections import namedtuple
+import logging
 import json
 import re
+
+
+logger = logging.getLogger('riak')
+
+
+class Conflict(Exception):
+    def __init__(self, vclock, siblings):
+        self.vclock = vclock
+        self.siblings = siblings
 
 
 class Object(dict):
     @property
     def key(self):
         return self.location.rsplit('/', 1)[-1]
+
+    @classmethod
+    def from_multipart_response(cls, response):
+        # A very naive parser that ignores headers and mostly
+        # rely on luck to parse any response
+
+        nl = '\r\n'
+
+        siblings = []
+        ctype = response.headers['content-type']
+        boundary = re.search('boundary=([^ ]*)', ctype).group(1)
+        body = response.body.decode('utf-8')
+
+        for part in body.split('--' + boundary):
+            part = part.lstrip(nl)
+
+            if (nl * 2) not in part:
+                continue
+
+            headers, body = part.split(nl * 2)
+            data = json.loads(body.rstrip(nl))
+            obj = cls(data)
+
+            siblings.append(obj)
+
+        return siblings
 
     @classmethod
     def from_response(cls, response):
@@ -95,11 +131,19 @@ class Client(object):
 
     @coroutine
     def get(self, bucket, key):
-        request = HTTPRequest(
-            self.server + '/buckets/%s/keys/%s' % (bucket, key))
+        url = self.server + '/buckets/%s/keys/%s' % (bucket, key)
+        request = HTTPRequest(url,
+                              headers={'accept': 'application/json,multipart/mixed'})
         try:
             response = yield self.http.fetch(request)
-        except HTTPError:
+        except HTTPError as e:
+            response = e.response
+
+            if e.code == 300:
+                vclock = response.headers['X-Riak-VClock']
+                siblings = Object.from_multipart_response(response)
+                raise Conflict(vclock, siblings)
+
             raise KeyError(key)
 
         return Object.from_response(response)

@@ -24,6 +24,17 @@ world = World()
 
 
 class Room(object):
+    @classmethod
+    @coroutine
+    def get_occupants(cls, db, key):
+        try:
+            data = yield db.get('occupants', key)
+            occupants = data['occupants']
+        except riak.Conflict as e:
+            logger.debug('conflict %r', e.siblings)
+            occupants = []
+
+        return occupants
 
     @classmethod
     @coroutine

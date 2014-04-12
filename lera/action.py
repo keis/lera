@@ -19,8 +19,8 @@ def look(session, what=None):
     roomlink = [x for x in user.links if x.tag == 'room'][0]
     room = yield session.db.get('rooms', roomlink.key)
 
-    occupants = yield session.db.get('occupants', roomlink.key)
-    occupants = [{'name': key} for key in occupants['occupants']]
+    occupants = yield Room.get_occupants(session.db, roomlink.key)
+    occupants = [{'name': key} for key in occupants]
 
     logger.info('look data %r %r', room, occupants)
     session.message(session.user.describe(room, occupants))
