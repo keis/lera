@@ -27,6 +27,7 @@ class Object(dict):
 
         nl = '\r\n'
 
+        vclock = response.headers['X-Riak-VClock']
         siblings = []
         ctype = response.headers['content-type']
         boundary = re.search('boundary=([^ ]*)', ctype).group(1)
@@ -41,6 +42,7 @@ class Object(dict):
             headers, body = part.split(nl * 2)
             data = json.loads(body.rstrip(nl))
             obj = cls(data)
+            obj.vclock = vclock
 
             siblings.append(obj)
 
@@ -54,6 +56,8 @@ class Object(dict):
             data = {}
 
         obj = cls(data)
+        obj.vclock = response.headers['X-Riak-VClock']
+
         if 'location' in response.headers:
             obj.location = response.headers['location']
 
@@ -113,10 +117,13 @@ class Client(object):
         return json.loads(response.body.decode('utf-8'))
 
     @coroutine
-    def save(self, bucket, key, value, links=None):
+    def save(self, bucket, key, value, links=None, vclock=None):
         headers = {
             'Content-Type': 'application/json'
         }
+
+        if vclock is not None:
+            headers['X-Riak-VClock'] = vclock
 
         if links:
             headers['Link'] = format_links(links)

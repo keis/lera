@@ -3,6 +3,8 @@ from tornado.ioloop import IOLoop
 import time
 import logging
 import smoke
+import qube
+import contextlib
 from . import riak, lang
 
 logger = logging.getLogger('mud')
@@ -26,46 +28,84 @@ world = World()
 class Room(object):
     @classmethod
     @coroutine
-    def get_occupants(cls, db, key):
+    def read_occupants(cls, db, key):
         try:
             data = yield db.get('occupants', key)
-            occupants = data['occupants']
         except riak.Conflict as e:
-            logger.debug('conflict %r', e.siblings)
-            occupants = []
+            rollback = []
+
+            @contextlib.contextmanager
+            def queue_rollback(op):
+                txid = op[-1]
+                try:
+                    yield
+                except Exception as e:
+                    logger.debug('operation failed %r', op)
+                    rollback.append({
+                        'bucket': 'users',
+                        'key': op[3],
+                        'tx': txid})
+
+            data = qube.from_json(e.siblings.pop())
+            for r in e.siblings:
+                data = qube.merge(data, qube.from_json(r), queue_rollback)
+
+            # Ideally this would happen after returning the list
+            yield db.save('occupants', key, qube.to_json(data), vclock=data.vclock)
+
+            for tx in rollback:
+                logger.info('should rollback %r', tx)
+
+        return data
+
+    @classmethod
+    @coroutine
+    def get_occupants(cls, db, key):
+        try:
+            data = yield cls.read_occupants(db, key)
+            occupants = data['data']['occupants']
+        except KeyError as e:
+            return []
 
         return occupants
 
     @classmethod
     @coroutine
     def remove_occupant(cls, db, key, occupant):
+        txid = 'dummy-txid'
+
         try:
-            data = yield db.get('occupants', key)
-            occupants = data['occupants']
+            data = yield cls.read_occupants(db, key)
         except KeyError as e:
             pass
         else:
             try:
-                occupants.remove(occupant)
+                qube.apply_op(data, ('rem', 'occupants', occupant, txid))
             except ValueError:
                 pass
             else:
-                logger.debug('updating occupants of %s, %r', key, occupants)
-                yield db.save('occupants', key, data)
+                logger.debug('updating occupants of %s, %r', key, data['data']['occupants'])
+                yield db.save('occupants', key, qube.to_json(data), vclock=data.vclock)
                 world.leave(key, user=occupant, room=key)
 
     @classmethod
     @coroutine
     def add_occupant(cls, db, key, occupant):
+        txid = 'dummy-txid'
+
         try:
-            data = yield db.get('occupants', key)
-            occupants = data['occupants']
+            data = yield cls.read_occupants(db, key)
         except KeyError as e:
-            occupants = []
-            data = {'occupants': occupants}
-        occupants.append(occupant)
-        logger.debug('updating occupants of %s, %r', key, occupants)
-        yield db.save('occupants', key, data)
+            data = {
+                'sequence': 0,
+                'journal': [],
+                'data': {
+                    'occupants': occupants
+                }
+            }
+        qube.apply_op(data, ('add', 'occupants', occupant, txid))
+        logger.debug('updating occupants of %s, %r', key, data['data']['occupants'])
+        yield db.save('occupants', key, qube.to_json(data), vclock=vclock)
         world.enter(key, user=occupant, room=key)
 
 
