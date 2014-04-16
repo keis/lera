@@ -56,7 +56,7 @@ class Object(dict):
             data = {}
 
         obj = cls(data)
-        obj.vclock = response.headers['X-Riak-VClock']
+        obj.vclock = response.headers.get('X-Riak-VClock', None)
 
         if 'location' in response.headers:
             obj.location = response.headers['location']
@@ -100,7 +100,7 @@ def parse_links(links):
 
 
 class Client(object):
-    
+
     def __init__(self, server):
         self.http = AsyncHTTPClient()
         self.server = server

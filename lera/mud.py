@@ -25,6 +25,24 @@ class World(TornadoBroker):
 world = World()
 
 
+class Rollback(object):
+    def __init__(self):
+        self._queue = []
+
+    def queue(self, bucket, key, txid):
+        self._queue.append((bucket, key, txid))
+
+    @coroutine
+    def process(self, db):
+        logger.info('processing rollback queue')
+
+        while len(self._queue) > 0:
+            (bucket, key, txid) = self._queue.pop()
+            logger.info('should rollback %r', txid)
+
+rollback = Rollback()
+
+
 class Room(object):
     @classmethod
     @coroutine
@@ -32,8 +50,6 @@ class Room(object):
         try:
             data = yield db.get('occupants', key)
         except riak.Conflict as e:
-            rollback = []
-
             @contextlib.contextmanager
             def queue_rollback(op):
                 txid = op[-1]
@@ -41,10 +57,7 @@ class Room(object):
                     yield
                 except Exception as e:
                     logger.debug('operation failed %r', op)
-                    rollback.append({
-                        'bucket': 'users',
-                        'key': op[3],
-                        'tx': txid})
+                    rollback.queue('users', op[3], txid)
 
             data = qube.from_json(e.siblings.pop())
             for r in e.siblings:
@@ -52,9 +65,7 @@ class Room(object):
 
             # Ideally this would happen after returning the list
             yield db.save('occupants', key, qube.to_json(data), vclock=data.vclock)
-
-            for tx in rollback:
-                logger.info('should rollback %r', tx)
+            yield rollback.process(db)
 
         return data
 
@@ -105,7 +116,7 @@ class Room(object):
             }
         qube.apply_op(data, ('add', 'occupants', occupant, txid))
         logger.debug('updating occupants of %s, %r', key, data['data']['occupants'])
-        yield db.save('occupants', key, qube.to_json(data), vclock=vclock)
+        yield db.save('occupants', key, qube.to_json(data), vclock=data.vclock)
         world.enter(key, user=occupant, room=key)
 
 

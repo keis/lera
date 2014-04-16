@@ -30,14 +30,14 @@ def change_reverse(o, k, p):
     frm, to = p
     change_apply(o, k, (to, frm))
 
-    
+
 APPLY, REVERSE = range(2)
 
 operations = {
     'add': (add_apply, add_reverse),
     'rem': (rem_apply, rem_reverse),
     'change': (change_apply, change_reverse)
-} 
+}
 
 def rzip(seqa, seqb):
     l = min(len(seqa), len(seqb)) - 1
@@ -78,6 +78,7 @@ def to_json(qube):
         'sequence': seq
     }
 
+
 def merge(ql, qr, error=None):
     # Find the last common journal entry
     for (jl, jr) in rzip(ql['journal'], qr['journal']):
@@ -100,13 +101,11 @@ def merge(ql, qr, error=None):
     while base['sequence'] > seq:
         _seq, opname, optarget, param = base['journal'].pop()[:4]
         base['sequence'] -= 1
-        print("REVERSE", data, optarget, param)
         operations[opname][REVERSE](data, optarget, param)
 
     # Replay queue of operations
     for op in queue:
         with error(op):
-            print("REAPPLY", op)
             apply_op(base, op[1:])
 
     return base
