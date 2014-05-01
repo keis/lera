@@ -18,6 +18,7 @@ class Conflict(Exception):
 
 class Object(dict):
     vclock = None
+    links = ()
 
     @property
     def key(self):
@@ -43,9 +44,14 @@ class Object(dict):
                 continue
 
             headers, body = part.split(nl * 2)
+            headers = dict(r.split(': ') for r in headers.split('\r\n'))
             data = json.loads(body.rstrip(nl))
+
             obj = cls(data)
             obj.vclock = vclock
+
+            if 'Link' in headers:
+                obj.links = list(parse_links(headers['Link']))
 
             siblings.append(obj)
 

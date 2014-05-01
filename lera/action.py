@@ -15,10 +15,9 @@ logger = logging.getLogger('session')
 @coroutine
 def look(session, what=None):
     user = yield model.User.read(session.db, rollback, session.user.key)
-    room = yield session.db.get('rooms', user.room)
+    room = yield model.Room.read(session.db, rollback, user.room)
 
-    occupants = yield Room.get_occupants(session.db, user.room)
-    occupants = [{'name': key} for key in occupants]
+    occupants = [{'name': key} for key in room.occupants]
 
     logger.info('look data %r %r', room, occupants)
     session.message(session.user.describe(room, occupants))

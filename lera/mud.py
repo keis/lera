@@ -31,29 +31,26 @@ class Room(object):
     @coroutine
     def get_occupants(cls, db, key):
         try:
-            occupants = yield model.Occupants.read(db, rollback, key)
+            room = yield model.Room.read(db, rollback, key)
         except KeyError as e:
             return []
 
-        return occupants.get()
+        return room.occupants
 
     @classmethod
     @coroutine
     def remove_occupant(cls, db, key, occupant):
         txid = 'dummy-txid'
 
-        try:
-            occupants = yield model.Occupants.read(db, rollback, key)
-        except KeyError as e:
-            return
+        room = yield model.Room.read(db, rollback, key)
 
         try:
-            occupants.add(occupant, txid)
+            room.remove_occupant(occupant, txid)
         except ValueError:
             pass
         else:
             logger.debug('updating occupants of %s', key)
-            yield occupants.save(db)
+            yield room.save(db)
             world.leave(key, user=occupant, room=key)
 
     @classmethod
@@ -61,14 +58,12 @@ class Room(object):
     def add_occupant(cls, db, key, occupant):
         txid = 'dummy-txid'
 
-        try:
-            occupants = yield model.Occupants.read(db, rollback, key)
-        except KeyError as e:
-            occupants = model.Occupants.new(key)
+        room = yield model.Room.read(db, rollback, key)
 
-        occupants.add(occupant, txid)
+        room.add_occupant(occupant, txid)
+
         logger.debug('updating occupants of %s', key)
-        yield occupants.save(db)
+        yield room.save(db)
         world.enter(key, user=occupant, room=key)
 
 
@@ -92,20 +87,23 @@ class User(object):
     def room(self):
         return self.data.room
 
+    @room.setter
+    def room(self, room):
+        self.data.change_room(room, 'dummy-tx')
+
     def describe(self, room, occupants):
         others = [o['name'] for o in occupants if o['name'] != self.name]
-        out = room['description']
+        out = room.description
         if len(others) > 0:
             out += '\n\nYou see %s here' % lang._and(others)
         return out
 
     @coroutine
     def find_exit(self, db, label):
-        user = yield model.User.reads(db, rollback, self.key)
+        user = yield model.User.read(db, rollback, self.key)
+        room = yield db.get('rooms', self.room)
 
-        roomlink = [x for x in user.qube.links if x.tag == 'room'][0]
-        room = yield db.get('rooms', roomlink.key)
-
+        logger.debug("available exits from %s: %r", self.room, room.links)
         exitlinks = [x for x in room.links if x.tag == label]
 
         if exitlinks == []:

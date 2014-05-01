@@ -36,6 +36,8 @@ class Rollback(object):
                     model = yield User.read(db, self, key)
                 elif bucket == 'occupants':
                     model = yield Occupants.read(db, self, key)
+
+            self.txs = []
         finally:
             self._processing = False
 
@@ -43,6 +45,9 @@ class Rollback(object):
 class Model(object):
     def __init__(self, qube):
         self.qube = qube
+
+    def __repr__(self):
+        return '<%s %r>' % (self.__class__.__name__, self.qube['data'])
 
     @classmethod
     @coroutine
@@ -77,19 +82,25 @@ class Model(object):
 
                 data = qube.merge(data, qube.from_json(r), queue_rollback)
 
+            links = data.links
             data = riak.Object(data)
             data.location = e.location
             data.vclock = e.vclock
+            data.links = links
 
         except:
             logger.error("Other error reading", exc_info=True)
             raise
 
         else:
-            data = qube.from_json(data)
+            try:
+                data = qube.from_json(data)
+            except:
+                logger.error("failed to parse %s", data)
+                raise
 
             if rollbacks:
-                logger.debug("processing rollbacks in %s/%s", cls.bucket, key)
+                logger.debug("processing rollbacks in %s/%s %r", cls.bucket, key, rollbacks)
 
                 try:
                     seq = data['sequence']
@@ -106,40 +117,35 @@ class Model(object):
             yield model.save(db)
             yield rollback.process(db)
 
-        logger.debug('read %s/%s', cls.bucket, key)
+        logger.debug('read %s/%s %s', cls.bucket, key, data.vclock)
         return model
 
     @coroutine
     def save(self, db):
         key = self.qube.key
-        logger.debug("saving %s/%s", self.bucket, key)
+        logger.debug("saving %s/%s %s", self.bucket, key, self.qube.vclock)
 
         data = qube.to_json(self.qube)
-        yield db.save(self.bucket, key, data, vclock=self.qube.vclock)
+        yield db.save(self.bucket, key, data,
+                      vclock=self.qube.vclock,
+                      links=self.qube.links)
 
 
-class Occupants(Model):
-    bucket = 'occupants'
+class Room(Model):
+    bucket = 'rooms'
     
-    @classmethod
-    def new(cls, key):
-        data = riak.Object({
-            'sequence': 0,
-            'journal': [],
-            'data': {
-                'occupants': set()
-            }
-        })
-        data.location = '/' + key
-        return cls(data)
+    @property
+    def description(self):
+        return self.qube['data']['description']
 
-    def get(self):
+    @property
+    def occupants(self):
         return self.qube['data']['occupants']
 
-    def add(self, occupant, txid):
+    def add_occupant(self, occupant, txid):
         qube.apply_op(self.qube, ('add', 'occupants', occupant, txid))
 
-    def remove(self, occupant, txid):
+    def remove_occupant(self, occupant, txid):
         qube.apply_op(self.qube, ('rem', 'occupants', occupant, txid))
 
     @classmethod
