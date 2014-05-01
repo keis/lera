@@ -6,20 +6,18 @@ This module describe the various actions a actor can take
 
 from tornado.gen import coroutine
 import logging
-from . import riak
-from .mud import Room
+from . import riak, model
+from .mud import Room, rollback
 
 logger = logging.getLogger('session')
 
 
 @coroutine
 def look(session, what=None):
-    user = yield session.db.get('users', session.user.key)
+    user = yield model.User.read(session.db, rollback, session.user.key)
+    room = yield session.db.get('rooms', user.room)
 
-    roomlink = [x for x in user.links if x.tag == 'room'][0]
-    room = yield session.db.get('rooms', roomlink.key)
-
-    occupants = yield Room.get_occupants(session.db, roomlink.key)
+    occupants = yield Room.get_occupants(session.db, user.room)
     occupants = [{'name': key} for key in occupants]
 
     logger.info('look data %r %r', room, occupants)

@@ -1,0 +1,182 @@
+from tornado.gen import coroutine
+import logging
+import contextlib
+import qube
+from . import riak
+
+logger = logging.getLogger('model')
+
+
+class Rollback(object):
+    def __init__(self):
+        self.txs = ()
+        self._queue = []
+        self._processing = False
+
+    def queue(self, bucket, key, txid):
+        self._queue.append((bucket, key, txid))
+
+    @coroutine
+    def process(self, db):
+        if self._processing:
+            logger.info('already processing rollback queue')
+            return
+
+        self._processing = True
+        logger.info('processing rollback queue')
+
+        try:
+            while len(self._queue) > 0:
+                self.txs = [q[-1] for q in self._queue]
+
+                (bucket, key, txid) = self._queue.pop()
+                logger.info('should rollback %r', txid)
+
+                if bucket == 'users':
+                    model = yield User.read(db, self, key)
+                elif bucket == 'occupants':
+                    model = yield Occupants.read(db, self, key)
+        finally:
+            self._processing = False
+
+
+class Model(object):
+    def __init__(self, qube):
+        self.qube = qube
+
+    @classmethod
+    @coroutine
+    def read(cls, db, rollback, key):
+        logger.debug("reading %s/%s", cls.bucket, key)
+
+        modified = False
+        rollbacks = rollback.txs
+
+        @contextlib.contextmanager
+        def queue_rollback(op):
+            try:
+                yield
+            except Exception as e:
+                logger.debug('operation failed %r', op)
+                cls.queue_rollback(rollback, op)
+
+        try:
+            data = yield db.get(cls.bucket, key)
+
+        except riak.Conflict as e:
+            logger.debug("conflict in %s/%s", cls.bucket, key)
+            modified = True
+            data = qube.from_json(e.siblings.pop())
+
+            for tx in rollbacks:
+                qube.rollback(data, tx, queue_rollback)
+
+            for r in e.siblings:
+                for tx in rollbacks:
+                    qube.rollback(r, tx, queue_rollback)
+
+                data = qube.merge(data, qube.from_json(r), queue_rollback)
+
+            data = riak.Object(data)
+            data.location = e.location
+            data.vclock = e.vclock
+
+        except:
+            logger.error("Other error reading", exc_info=True)
+            raise
+
+        else:
+            data = qube.from_json(data)
+
+            if rollbacks:
+                logger.debug("processing rollbacks in %s/%s", cls.bucket, key)
+
+                try:
+                    seq = data['sequence']
+                    for tx in rollbacks:
+                        data = qube.rollback(data, tx, queue_rollback)
+                    modified = seq != data['sequence']
+                except:
+                    logger.error("error performing rollback", exc_info=True)
+                    raise
+
+        model = cls(data)
+        if modified:
+            # Ideally this would happen after returning the list
+            yield model.save(db)
+            yield rollback.process(db)
+
+        logger.debug('read %s/%s', cls.bucket, key)
+        return model
+
+    @coroutine
+    def save(self, db):
+        key = self.qube.key
+        logger.debug("saving %s/%s", self.bucket, key)
+
+        data = qube.to_json(self.qube)
+        yield db.save(self.bucket, key, data, vclock=self.qube.vclock)
+
+
+class Occupants(Model):
+    bucket = 'occupants'
+    
+    @classmethod
+    def new(cls, key):
+        data = riak.Object({
+            'sequence': 0,
+            'journal': [],
+            'data': {
+                'occupants': set()
+            }
+        })
+        data.location = '/' + key
+        return cls(data)
+
+    def get(self):
+        return self.qube['data']['occupants']
+
+    def add(self, occupant, txid):
+        qube.apply_op(self.qube, ('add', 'occupants', occupant, txid))
+
+    def remove(self, occupant, txid):
+        qube.apply_op(self.qube, ('rem', 'occupants', occupant, txid))
+
+    @classmethod
+    def queue_rollback(cls, rollback, op):
+        txid = op[-1]
+        rollback.queue('users', op[3], txid)
+
+
+class User(Model):
+    bucket = 'users'
+
+    @property
+    def name(self):
+        return self.qube['data']['name']
+
+    @property
+    def quest(self):
+        return self.qube['data']['quest']
+
+    @property
+    def room(self):
+        return self.qube['data']['room']
+
+    def change_room(self, key, txid):
+        qube.apply_op(self.qube, ('change', 'room', (self.room, key), txid))
+
+    @classmethod
+    def new(cls, name, quest, location):
+        data = riak.Object({
+            'sequence': 0,
+            'journal': [],
+            'data': {
+                'name': name,
+                'quest': quest,
+                'room': location
+            }
+        })
+        data.location = '/' + name.lower()
+        data.links = [riak.link('rooms', location, 'room')]
+        return cls(data)

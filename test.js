@@ -3,7 +3,7 @@ var Client = require('websocket').client,
 
 client.on('connect', function (sock) {
     messages = [
-        'foo',
+        'fooxx',
         'foo'
     ];
 

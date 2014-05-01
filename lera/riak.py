@@ -10,12 +10,15 @@ logger = logging.getLogger('riak')
 
 
 class Conflict(Exception):
-    def __init__(self, vclock, siblings):
+    def __init__(self, vclock, location, siblings):
         self.vclock = vclock
+        self.location = location
         self.siblings = siblings
 
 
 class Object(dict):
+    vclock = None
+
     @property
     def key(self):
         return self.location.rsplit('/', 1)[-1]
@@ -149,8 +152,12 @@ class Client(object):
             if e.code == 300:
                 vclock = response.headers['X-Riak-VClock']
                 siblings = Object.from_multipart_response(response)
-                raise Conflict(vclock, siblings)
+
+                raise Conflict(vclock, url, siblings)
 
             raise KeyError(key)
 
-        return Object.from_response(response)
+        obj = Object.from_response(response)
+        if not hasattr(obj, 'location'):
+            obj.location = url
+        return obj

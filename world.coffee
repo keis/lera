@@ -8,34 +8,58 @@ room 'start', ->
     link ['rooms', 'forest'], 'west'
 
 occupants 'start', ->
-    this.sequence = 1
+    this.sequence = 2
     this.data = {occupants: ['foo', 'bar']}
     this.journal = [
-        [0, 'add', 'occupants', 'foo', 'test-123'],
-        [1, 'add', 'occupants', 'bar', 'test-124']
+        [1, 'add', 'occupants', 'foo', 'test-123'],
+        [2, 'add', 'occupants', 'bar', 'test-124']
     ]
 
     sibling ->
-        this.sequence = 2
+        this.sequence = 3
         this.data = {occupants: ['bar']}
         this.journal = [
-            [0, 'add', 'occupants', 'foo', 'test-123'],
-            [1, 'add', 'occupants', 'bar', 'test-124']
-            [2, 'rem', 'occupants', 'foo', 'test-125']
+            [1, 'add', 'occupants', 'foo', 'test-123'],
+            [2, 'add', 'occupants', 'bar', 'test-124']
+            [3, 'rem', 'occupants', 'foo', 'test-125']
         ]
 
     sibling ->
-        this.sequence = 2
+        this.sequence = 3
         this.data = {occupants: ['bar']}
         this.journal = [
-            [0, 'add', 'occupants', 'foo', 'test-123'],
-            [1, 'add', 'occupants', 'bar', 'test-124']
-            [2, 'rem', 'occupants', 'foo', 'test-126']
+            [1, 'add', 'occupants', 'foo', 'test-123'],
+            [2, 'add', 'occupants', 'bar', 'test-124']
+            [3, 'rem', 'occupants', 'foo', 'test-126']
         ]
 
-user 'foo', {quest: 'foo'}
+user 'foo', ->
+    this.sequence = 1
+    this.data = {
+        quest: 'foo',
+        room: 'cave'
+    }
+    this.journal = [
+        [1, 'change', 'room', ['start', 'cave'], 'test-125']
+    ]
 
-user 'bar', {quest: 'bar'}
+    sibling ->
+        this.sequence = 1
+        this.data = {
+            quest: 'foo',
+            room: 'forest'
+        }
+        this.journal = [
+            [1, 'change', 'room', ['start', 'forest'], 'test-126']
+        ]
+
+user 'bar', {
+    sequence: 0,
+    data: {
+        quest: 'bar'
+    },
+    journal: []
+}
 
 room 'cave', ->
     this.description = "A cold cave with a altar in the back. On the altar is a collection of cups. Through the entrace of the cave to the south is small glade"

@@ -94,7 +94,7 @@ def merge(ql, qr, error=None):
     data = base['data']
 
     # Assemble a queue of operations to replay
-    queue = ql['journal'][seq+1:] + qr['journal'][seq+1:]
+    queue = ql['journal'][seq:] + qr['journal'][seq:]
     queue.sort()
 
     # Reverse the base back to the last common journal entry
