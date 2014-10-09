@@ -30,12 +30,12 @@ class Rollback(object):
                 self.txs = [q[-1] for q in self._queue]
 
                 (bucket, key, txid) = self._queue.pop()
-                logger.info('should rollback %r', txid)
+                logger.info('should rollback %r in %r/%r', txid, bucket, key)
 
                 if bucket == 'users':
                     model = yield User.read(db, self, key)
-                elif bucket == 'occupants':
-                    model = yield Occupants.read(db, self, key)
+                elif bucket == 'room':
+                    model = yield Room.read(db, self, key)
 
             self.txs = []
         finally:
@@ -133,7 +133,7 @@ class Model(object):
 
 class Room(Model):
     bucket = 'rooms'
-    
+
     @property
     def description(self):
         return self.qube['data']['description']
