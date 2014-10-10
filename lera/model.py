@@ -4,45 +4,12 @@ import contextlib
 import qube
 from . import riak
 
-logger = logging.getLogger('model')
-
-
-class Rollback(object):
-    def __init__(self):
-        self.txs = ()
-        self._queue = []
-        self._processing = False
-
-    def queue(self, bucket, key, txid):
-        self._queue.append((bucket, key, txid))
-
-    @coroutine
-    def process(self, db):
-        if self._processing:
-            logger.info('already processing rollback queue')
-            return
-
-        self._processing = True
-        logger.info('processing rollback queue')
-
-        try:
-            while len(self._queue) > 0:
-                self.txs = [q[-1] for q in self._queue]
-
-                (bucket, key, txid) = self._queue.pop()
-                logger.info('should rollback %r in %r/%r', txid, bucket, key)
-
-                if bucket == 'users':
-                    model = yield User.read(db, self, key)
-                elif bucket == 'room':
-                    model = yield Room.read(db, self, key)
-
-            self.txs = []
-        finally:
-            self._processing = False
+logger = logging.getLogger(__name__)
 
 
 class Model(object):
+    '''A generic qube powered model stored in RIAK'''
+
     def __init__(self, qube):
         self.qube = qube
 

@@ -5,7 +5,7 @@ from . import riak, mud, action
 
 logger = logging.getLogger('session')
 
-riak_client = riak.Client('http://localhost:8098')
+riak_client = riak.Client('http://localhost:10018')
 
 # Messages sent during login
 MSG_NAME, MSG_QUEST = ({

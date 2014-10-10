@@ -3,7 +3,7 @@ from tornado.ioloop import IOLoop
 import time
 import logging
 import smoke
-from . import riak, lang, model
+from . import riak, lang, model, rollback
 
 logger = logging.getLogger('mud')
 starting_room = 'start'
@@ -21,9 +21,7 @@ class World(TornadoBroker):
     say = smoke.signal('say', 'room')
 
 world = World()
-
-
-rollback = model.Rollback()
+rollback = rollback.Rollback([model.Room, model.User])
 
 
 class Room(object):
