@@ -50,6 +50,14 @@ def apply_op(qube, op):
     qube['journal'].append((qube['sequence'],) + op)
 
 
+def init(data=None):
+    return {
+        'sequence': 0,
+        'journal': [],
+        'data': data or {}
+    }
+
+
 def from_json(raw):
     data = raw['data']
     journal = raw['journal']

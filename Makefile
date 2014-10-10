@@ -34,7 +34,7 @@ tmp:
 	mkdir -p $@
 
 tmp/xunit.xml tmp/coverage.xml: tmp env/freeze.txt env/freeze-test.txt
-	$(VIRTUAL) nosetests --with-xunit --xunit-file=tmp/xunit.xml --with-coverage --cover-xml --cover-xml-file=tmp/coverage.xml --cover-inclusive --cover-erase --cover-package lera tests
+	$(VIRTUAL) nosetests --with-xunit --xunit-file=tmp/xunit.xml --with-coverage --cover-xml --cover-xml-file=tmp/coverage.xml --cover-inclusive --cover-erase --cover-package lera --cover-package qube tests
 
 ${RIAK_GENESIS} ${BOWER} ${COFFEE}:
 	mkdir -p node_modules

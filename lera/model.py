@@ -141,15 +141,11 @@ class User(Model):
 
     @classmethod
     def new(cls, name, quest, location):
-        data = riak.Object({
-            'sequence': 0,
-            'journal': [],
-            'data': {
-                'name': name,
-                'quest': quest,
-                'room': location
-            }
-        })
+        data = riak.Object(qube.init({
+            'name': name,
+            'quest': quest,
+            'room': location
+        }))
         data.location = '/' + name.lower()
         data.links = [riak.link('rooms', location, 'room')]
         return cls(data)
