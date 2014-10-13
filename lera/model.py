@@ -44,10 +44,12 @@ class Model(object):
                 qube.rollback(data, tx, queue_rollback)
 
             for r in e.siblings:
+                r = qube.from_json(r)
+
                 for tx in rollbacks:
                     qube.rollback(r, tx, queue_rollback)
 
-                data = qube.merge(data, qube.from_json(r), queue_rollback)
+                data = qube.merge(data, r, queue_rollback)
 
             links = data.links
             data = riak.Object(data)

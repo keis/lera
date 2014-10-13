@@ -4,6 +4,9 @@ RIAK_GENESIS=node_modules/.bin/riak-genesis
 BOWER=node_modules/.bin/bower
 COFFEE=node_modules/.bin/coffee
 
+SRC=$(shell find lera/ -type f)
+TESTSRC=$(shell find tests/ -type f)
+
 .PHONY: env start-server create-world test
 
 env: env/bin/activate env/freeze.txt
@@ -33,8 +36,14 @@ bower_components: bower.json
 tmp:
 	mkdir -p $@
 
-tmp/xunit.xml tmp/coverage.xml: tmp env/freeze.txt env/freeze-test.txt
-	$(VIRTUAL) nosetests --with-xunit --xunit-file=tmp/xunit.xml --with-coverage --cover-xml --cover-xml-file=tmp/coverage.xml --cover-inclusive --cover-erase --cover-package lera --cover-package qube tests
+tmp/xunit.xml .coverage: tmp env/freeze.txt env/freeze-test.txt $(SRC) $(TESTSRC)
+	$(VIRTUAL) nosetests --with-xunit --xunit-file=tmp/xunit.xml --with-coverage --cover-inclusive --cover-erase --cover-package lera --cover-package qube tests
+
+tmp/coverage.xml: .coverage
+	coverage xml -o $@
+
+htmlcov: .coverage
+	coverage html
 
 ${RIAK_GENESIS} ${BOWER} ${COFFEE}:
 	mkdir -p node_modules

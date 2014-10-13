@@ -128,7 +128,7 @@ def rollback(qube, txid, error=None):
 
     seq = j[0] - 1
 
-    queue = qube['journal'][seq+2:]
+    queue = qube['journal'][seq+1:]
     data = qube['data']
 
     while qube['sequence'] > seq:
