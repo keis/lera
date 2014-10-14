@@ -16,6 +16,18 @@ class Model(object):
     def __repr__(self):
         return '<%s %r>' % (self.__class__.__name__, self.qube['data'])
 
+    @property
+    def key(self):
+        return self.qube.key
+
+    @property
+    def vclock(self):
+        return self.qube.vclock
+
+    @property
+    def links(self):
+        return self.qube.links
+
     @classmethod
     @coroutine
     def read(cls, db, rollback, key):
@@ -91,13 +103,12 @@ class Model(object):
 
     @coroutine
     def save(self, db):
-        key = self.qube.key
-        logger.debug("saving %s/%s %s", self.bucket, key, self.qube.vclock)
+        logger.debug("saving %s/%s %s", self.bucket, self.key, self.vclock)
 
         data = qube.to_json(self.qube)
-        yield db.save(self.bucket, key, data,
-                      vclock=self.qube.vclock,
-                      links=self.qube.links)
+        yield db.save(self.bucket, self.key, data,
+                      vclock=self.vclock,
+                      links=self.links)
 
 
 class Room(Model):

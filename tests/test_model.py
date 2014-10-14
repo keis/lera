@@ -1,5 +1,5 @@
 from hamcrest import assert_that, equal_to
-from hamcrest.library import instance_of, has_property, has_entry, has_length
+from hamcrest.library import instance_of, has_property, has_entry, has_length, has_key
 from .matchers import called_once_with
 from tornado.gen import coroutine
 from mock import Mock
@@ -128,6 +128,10 @@ def test_read_performs_rollback():
     assert_that(m.qube['journal'], has_length(2))
     assert_that(m.qube['data'], has_entry('test', {'abc', 'ghi'}))
 
+    assert_that(db.save, called_once_with('foo_bucket',
+                                          'zzz',
+                                          has_key('data')))
+
 
 @async
 def test_read_performs_rollback_with_siblings():
@@ -157,3 +161,7 @@ def test_read_performs_rollback_with_siblings():
 
     assert_that(m.qube['journal'], has_length(2))
     assert_that(m.qube['data'], has_entry('test', {'abc', 'jkl'}))
+
+    assert_that(db.save, called_once_with('foo_bucket',
+                                          'zzz',
+                                          has_key('data')))
