@@ -59,9 +59,12 @@ def init(data=None):
 
 
 def from_json(raw):
-    data = raw['data']
-    journal = raw['journal']
-    seq = raw['sequence']
+    qube = {}
+    qube.update(raw)
+
+    data = qube['data']
+    journal = qube['journal']
+    seq = qube['sequence']
 
     # Convert parts of data to their proper data types
     for k, v in data.items():
@@ -70,9 +73,9 @@ def from_json(raw):
 
 
     # Convert journal entries to tuples
-    raw['journal'] = [tuple(j) for j in journal]
+    qube['journal'] = [tuple(j) for j in journal]
 
-    return raw
+    return qube
 
 
 def to_json(qube):

@@ -10,23 +10,14 @@ logger = logging.getLogger(__name__)
 class Model(object):
     '''A generic qube powered model stored in RIAK'''
 
-    def __init__(self, qube):
+    def __init__(self, key, qube, vclock=None, links=None):
+        self.key = key
         self.qube = qube
+        self.vclock = vclock
+        self.links = links
 
     def __repr__(self):
         return '<%s %r>' % (self.__class__.__name__, self.qube['data'])
-
-    @property
-    def key(self):
-        return self.qube.key
-
-    @property
-    def vclock(self):
-        return self.qube.vclock
-
-    @property
-    def links(self):
-        return self.qube.links
 
     @classmethod
     @coroutine
@@ -45,12 +36,16 @@ class Model(object):
                 cls.queue_rollback(rollback, op)
 
         try:
-            data = yield db.get(cls.bucket, key)
+            response = yield db.get(cls.bucket, key)
 
         except riak.Conflict as e:
             logger.debug("conflict in %s/%s", cls.bucket, key)
             modified = True
-            data = qube.from_json(e.siblings.pop())
+            first = e.siblings.pop()
+
+            links = first.links
+            vclock = e.vclock
+            data = qube.from_json(first)
 
             for tx in rollbacks:
                 qube.rollback(data, tx, queue_rollback)
@@ -63,22 +58,14 @@ class Model(object):
 
                 data = qube.merge(data, r, queue_rollback)
 
-            links = data.links
-            data = riak.Object(data)
-            data.location = e.location
-            data.vclock = e.vclock
-            data.links = links
-
         except:
             logger.error("Other error reading", exc_info=True)
             raise
 
         else:
-            try:
-                data = qube.from_json(data)
-            except:
-                logger.error("failed to parse %s", data)
-                raise
+            links = response.links
+            vclock = response.vclock
+            data = qube.from_json(response)
 
             if rollbacks:
                 logger.debug("processing rollbacks in %s/%s %r", cls.bucket, key, rollbacks)
@@ -92,13 +79,14 @@ class Model(object):
                     logger.error("error performing rollback", exc_info=True)
                     raise
 
-        model = cls(data)
+        model = cls(key, data, vclock=vclock, links=links)
+
         if modified:
             # Ideally this would happen after returning the list
             yield model.save(db)
             yield rollback.process(db)
 
-        logger.debug('read %s/%s %s', cls.bucket, key, data.vclock)
+        logger.debug('read %s/%s %s', cls.bucket, key, vclock)
         return model
 
     @coroutine
@@ -154,11 +142,11 @@ class User(Model):
 
     @classmethod
     def new(cls, name, quest, location):
-        data = riak.Object(qube.init({
+        data = qube.init({
             'name': name,
             'quest': quest,
             'room': location
-        }))
-        data.location = '/' + name.lower()
-        data.links = [riak.link('rooms', location, 'room')]
-        return cls(data)
+        })
+        links=[riak.link('rooms', location, 'room')]
+
+        return cls(name.lower(), data, links=links)
