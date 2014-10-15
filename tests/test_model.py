@@ -165,3 +165,40 @@ def test_read_performs_rollback_with_siblings():
     assert_that(db.save, called_once_with('foo_bucket',
                                           'zzz',
                                           has_key('data')))
+
+
+@async
+def test_read_conflict_rollback_not_reintroduced():
+    db = StubDb()
+    rollback = StubRollback()
+
+    qa = qube.init({'test': set()})
+    qb = qube.init({'test': set()})
+
+    qube.apply_op(qa, ('add', 'test', 'abc', 'tx0'))
+    qube.apply_op(qa, ('rem', 'test', 'abc', 'tx456'))
+
+    qube.apply_op(qb, ('add', 'test', 'abc', 'tx0'))
+    qube.apply_op(qb, ('rem', 'test', 'abc', 'tx456'))
+
+    qube.rollback(qa, 'tx456')
+    qube.apply_op(qa, ('add', 'test', 'def', 'tx789'))
+
+    qube.apply_op(qb, ('add', 'test', 'ghi', 'tx321'))
+
+    def doraise(a, b):
+        raise riak.Conflict('the_vclock',
+                            'x/zzz',
+                            [StubDbResult(qube.to_json(qa)),
+                             StubDbResult(qube.to_json(qb))])
+
+    db.get.side_effect = doraise
+
+    m = yield FooModel.read(db, rollback, 'zzz')
+
+    assert_that(m.qube['journal'], has_length(3))
+    assert_that(m.qube['data'], has_entry('test', {'abc', 'def', 'ghi'}))
+
+    assert_that(db.save, called_once_with('foo_bucket',
+                                          'zzz',
+                                          has_key('data')))

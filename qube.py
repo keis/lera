@@ -54,7 +54,8 @@ def init(data=None):
     return {
         'sequence': 0,
         'journal': [],
-        'data': data or {}
+        'data': data or {},
+        'rollback': set()
     }
 
 
@@ -71,9 +72,11 @@ def from_json(raw):
         if isinstance(v, list):
             data[k] = set(v)
 
-
     # Convert journal entries to tuples
     qube['journal'] = [tuple(j) for j in journal]
+
+    # Convert rollback list to set
+    qube['rollback'] = set(qube.get('rollback', ()))
 
     return qube
 
@@ -82,11 +85,13 @@ def to_json(qube):
     data = qube['data']
     journal = qube['journal']
     seq = qube['sequence']
+    rollback = qube['rollback']
 
     return {
         'data': {k: (list(v) if isinstance(v, set) else v) for k, v in data.items()},
         'journal': [list(j) for j in journal],
-        'sequence': seq
+        'sequence': seq,
+        'rollback': list(rollback)
     }
 
 
@@ -101,8 +106,11 @@ def merge(ql, qr, error=None):
     seq = jl[0]
 
     # Let base be the qube with the lowest sequence number
-    base = min(ql, qr, key=lambda q: q['sequence'])
+    base, other = sorted([ql, qr], key=lambda q: q['sequence'])
     data = base['data']
+
+    # Update list of rolled back txs
+    base['rollback'].update(other['rollback'])
 
     # Assemble a queue of operations to replay
     queue = ql['journal'][seq:] + qr['journal'][seq:]
@@ -116,6 +124,9 @@ def merge(ql, qr, error=None):
 
     # Replay queue of operations
     for op in queue:
+        if op[-1] in base['rollback']:
+            continue
+
         with error(op):
             apply_op(base, op[1:])
 
@@ -143,5 +154,7 @@ def rollback(qube, txid, error=None):
     for op in queue:
         with error(op):
             apply_op(qube, op[1:])
+
+    qube['rollback'].add(txid)
 
     return qube

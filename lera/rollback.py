@@ -1,13 +1,4 @@
-''' Transaction rollbacks
-
-Scenario TODO
-
-Initial state, Actor X in room A, Actor Y in room B
-S1, Actor X moves from A to B and C, causing a sibling of A
-S2, read repair of A causing move to C being reverted, C reverted
-S3, Actor Y moves from B to D based on S1, causing a sibling of C
-S4, reap repair of C, merge reintroduces X to C
-'''
+''' Transaction rollbacks'''
 
 import logging
 from tornado.gen import coroutine
