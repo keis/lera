@@ -77,17 +77,58 @@ def javascript(req, res, path):
     try:
         gen = read_file(path)
     except FileNotFoundError as e:
-        print(e)
         res.status(404).send(b'File not found')
         return
 
     res.status(200).send(gen)
 
 
+from pulsar.apps.ws import WebSocket, WebSocketProtocol
+from functools import partial
+
+
+class Handler(object):
+    def on_message(self, sock, message):
+        print("message", message)
+
+    def on_open(self, sock):
+        sock.write('what up')
+        print("open", sock)
+
+    def on_close(self, sock):
+        print("close", sock)
+
+
+wsr = WebSocket('/websocket', Handler())
+
+@coroutine
+def ws(req, res):
+    headers_parser = wsr.handle_handshake(req.environ)
+
+    if not headers_parser:
+        res.status(404).send(b'File not found')
+        return
+
+    headers, parser = headers_parser
+
+    connection = req.environ.get('pulsar.connection')
+    if not connection:
+        res.status(404).send(b'File not found')
+        return
+
+    factory = partial(WebSocketProtocol, req, wsr.handle, parser)
+    connection.upgrade(factory)
+
+    for k,v in headers:
+        res.headers[k] = v
+    res.status(102).send(b'')
+
+
 urls = Map([
     Rule('/', endpoint=index),
     Rule('/lazy', endpoint=lazy),
-    Rule('/js/<path:path>', endpoint=javascript)
+    Rule('/js/<path:path>', endpoint=javascript),
+    Rule('/socket', endpoint=ws)
 ])
 
 

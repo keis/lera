@@ -2,7 +2,7 @@ var Client = require('websocket').client,
     client = new Client();
 
 client.on('connect', function (sock) {
-    var login = ['fooy', 'foo'],
+    var login = ['foof', 'foo'],
         messages = ['go south'];
 //, 'go south'];
 
@@ -33,4 +33,13 @@ client.on('connect', function (sock) {
     });
 });
 
-client.connect('ws://localhost:8888/socket');
+client.on('connectFailed', function (err) {
+    console.log('connect failed', err);
+});
+
+client.on('error', function (err) {
+    console.log(err);
+});
+
+//client.connect('ws://localhost:8888/socket');
+client.connect('ws://localhost:8060/socket');
