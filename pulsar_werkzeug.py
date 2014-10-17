@@ -60,9 +60,34 @@ def lazy(req, res):
     res.status(201).send([b'lazy page'])
 
 
+def read_file(path):
+    chunk_size = 64 * 1024
+    with open(path, 'rb') as f:
+        while True:
+            chunk  = f.read(chunk_size)
+            if chunk:
+                yield chunk
+            else:
+                return
+
+
+@coroutine
+def javascript(req, res, path):
+    path = './js/%s' % path
+    try:
+        gen = read_file(path)
+    except FileNotFoundError as e:
+        print(e)
+        res.status(404).send(b'File not found')
+        return
+
+    res.status(200).send(gen)
+
+
 urls = Map([
     Rule('/', endpoint=index),
-    Rule('/lazy', endpoint=lazy)
+    Rule('/lazy', endpoint=lazy),
+    Rule('/js/<path:path>', endpoint=javascript)
 ])
 
 
