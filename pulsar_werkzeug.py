@@ -1,12 +1,14 @@
+import logging
 from werkzeug.routing import Map, Rule
 from werkzeug.exceptions import HTTPException
 from werkzeug.wrappers import Request
-#from asyncio import coroutine, Future, Task, sleep
-from trollius import coroutine, Future, Task, sleep
-
+#from asyncio import coroutine, Future, Task, sleep, async
+from trollius import coroutine, Future, Task, sleep, async
 
 from werkzeug.http import HTTP_STATUS_CODES
 from werkzeug.datastructures import Headers
+
+logger = logging.getLogger(__name__)
 
 class Response(Future):
     '''connect/express inspired response object'''
@@ -86,41 +88,52 @@ def javascript(req, res, path):
 from pulsar.apps.ws import WebSocket, WebSocketProtocol
 from functools import partial
 
+from websockets import handshake, protocol
 
-class Handler(object):
-    def on_message(self, sock, message):
-        print("message", message)
-
-    def on_open(self, sock):
-        sock.write('what up')
-        print("open", sock)
-
-    def on_close(self, sock):
-        print("close", sock)
+@coroutine
+def handler(sock):
+    yield from sock.send('what up')
+    while True:
+        message = yield from sock.recv()
+        if message is None:
+            return
+        print('message', message)
 
 
-wsr = WebSocket('/websocket', Handler())
+class WSBridge(protocol.WebSocketCommonProtocol):
+    def __init__(self, ws_handler, *, loop=None, **kwargs):
+        self.handler = ws_handler
+        super().__init__(**kwargs)
+        async(self.run2())
+
+    @coroutine
+    def run2(self):
+        try:
+            yield from self.handler(self)
+        except Exception:
+            logger.error("Exception in connection handler", exc_info=True)
+            yield from self.fail_connection(1011)
+            raise
+
+    def _data_received(self, data):
+        self.data_received(data)
+
+    def copy_many_times_events(self, *args):
+        print("copy many times events", args)
+
 
 @coroutine
 def ws(req, res):
-    headers_parser = wsr.handle_handshake(req.environ)
-
-    if not headers_parser:
-        res.status(404).send(b'File not found')
-        return
-
-    headers, parser = headers_parser
+    key = handshake.check_request(req.headers.__getitem__)
+    handshake.build_response(res.headers.__setitem__, key)
 
     connection = req.environ.get('pulsar.connection')
     if not connection:
         res.status(404).send(b'File not found')
         return
 
-    factory = partial(WebSocketProtocol, req, wsr.handle, parser)
+    factory = partial(WSBridge, handler) 
     connection.upgrade(factory)
-
-    for k,v in headers:
-        res.headers[k] = v
     res.status(102).send(b'')
 
 
