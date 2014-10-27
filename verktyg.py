@@ -1,6 +1,5 @@
 import logging
-from trollius import async
-from asyncio import Task, Future, coroutine
+from asyncio import Task, Future, coroutine, async
 from werkzeug.routing import Map, Rule
 from werkzeug.http import HTTP_STATUS_CODES
 from werkzeug.datastructures import Headers
