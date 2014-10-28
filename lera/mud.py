@@ -1,21 +1,24 @@
-from tornado.gen import coroutine, Task
-from tornado.ioloop import IOLoop
+from asyncio import Task, coroutine
 import time
 import logging
 import smoke
 from . import riak, lang, model, rollback
 
-logger = logging.getLogger('mud')
+logger = logging.getLogger(__name__)
 starting_room = 'start'
 
 
-class TornadoBroker(smoke.Broker):
+class AsyncBroker(smoke.Broker):
+    @coroutine
+    def async_publish(self, event, **kwargs):
+        super().publish(event, **kwargs)
+
     # https://github.com/keis/smoke/issues/1
     def publish(self, event, **kwargs):
-        IOLoop.instance().add_callback(super().publish, event, **kwargs)
+        Task(async_publish(event, **kwargs))
 
 
-class World(TornadoBroker):
+class World(AsyncBroker):
     enter = smoke.signal('enter', 'room')
     leave = smoke.signal('leave', 'room')
     say = smoke.signal('say', 'room')
@@ -29,7 +32,7 @@ class Room(object):
     @coroutine
     def get_occupants(cls, db, key):
         try:
-            room = yield model.Room.read(db, rollback, key)
+            room = yield from model.Room.read(db, rollback, key)
         except KeyError as e:
             return []
 
@@ -40,7 +43,7 @@ class Room(object):
     def remove_occupant(cls, db, key, occupant):
         txid = 'dummy-txid'
 
-        room = yield model.Room.read(db, rollback, key)
+        room = yield from model.Room.read(db, rollback, key)
 
         try:
             room.remove_occupant(occupant, txid)
@@ -48,7 +51,7 @@ class Room(object):
             pass
         else:
             logger.debug('updating occupants of %s', key)
-            yield room.save(db)
+            yield from room.save(db)
             world.leave(key, user=occupant, room=key)
 
     @classmethod
@@ -56,12 +59,12 @@ class Room(object):
     def add_occupant(cls, db, key, occupant):
         txid = 'dummy-txid'
 
-        room = yield model.Room.read(db, rollback, key)
+        room = yield from model.Room.read(db, rollback, key)
 
         room.add_occupant(occupant, txid)
 
         logger.debug('updating occupants of %s', key)
-        yield room.save(db)
+        yield from room.save(db)
         world.enter(key, user=occupant, room=key)
 
 
@@ -98,10 +101,10 @@ class User(object):
 
     @coroutine
     def find_exit(self, db, label):
-        user = yield model.User.read(db, rollback, self.key)
-        room = yield db.get('rooms', self.room)
+        user = yield from model.User.read(db, rollback, self.key)
+        room = yield from db.get('rooms', user.room)
 
-        logger.debug("available exits from %s: %r", self.room, room.links)
+        logger.debug("available exits from %s: %r", user.room, room.links)
         exitlinks = [x for x in room.links if x.tag == label]
 
         if exitlinks == []:
@@ -121,8 +124,8 @@ class User(object):
 
         user = cls(model.User.new(name, quest, starting_room))
 
-        yield user.save(db)
-        yield Room.add_occupant(db, user.room, user.key)
+        yield from user.save(db)
+        yield from Room.add_occupant(db, user.room, user.key)
 
         return user
 
@@ -137,7 +140,7 @@ class User(object):
         key = name.lower()
 
         try:
-            data = yield model.User.read(db, rollback, key)
+            data = yield from model.User.read(db, rollback, key)
         except KeyError:
             logger.info("User not found %s", key)
             raise

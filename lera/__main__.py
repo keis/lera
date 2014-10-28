@@ -1,3 +1,5 @@
+# FIXME: pulsar borks on being run from __main__
+
 from tornado import ioloop
 import logging
 

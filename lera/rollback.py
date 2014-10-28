@@ -1,7 +1,7 @@
 ''' Transaction rollbacks'''
 
 import logging
-from tornado.gen import coroutine
+from asyncio import coroutine
 
 logger = logging.getLogger(__name__)
 
@@ -43,7 +43,7 @@ When processing the queue is incrementally walked and for each item a read is is
                 logger.info('should rollback %r in %s/%s', txid, bucket, key)
 
                 # This may trigger more transactions to be added to the queue
-                model = yield self.models[bucket].read(db, self, key)
+                model = yield from self.models[bucket].read(db, self, key)
 
             self.txs = []
         finally:

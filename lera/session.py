@@ -1,9 +1,10 @@
-from tornado.gen import coroutine
+from asyncio import Task, coroutine
 import logging
 import smoke
+import json
 from . import riak, mud, action
 
-logger = logging.getLogger('session')
+logger = logging.getLogger(__name__)
 
 riak_client = riak.Client('http://localhost:10018')
 
@@ -50,12 +51,15 @@ class Session(object):
         if name != self.user.name:
             self.message('%s says %s' % (name, message))
 
+    def write_json(self, data):
+        Task(self.socket.send(json.dumps(data)))
+
     def message(self, frmt, *args):
         '''Send a plaintext message to the client'''
-        self.socket.write_json({'message': frmt % args})
+        self.write_json({'message': frmt % args})
 
     def start(self):
-        self.socket.write_json(MSG_NAME)
+        self.write_json(MSG_NAME)
 
     def disconnect_room(self):
         '''Helper to disconnect signal subscriptions of the current room'''
@@ -83,7 +87,7 @@ class Session(object):
         if self.name is None:
             logger.debug('(S%s) Got username "%s"', id(self), message)
             self.name = message
-            self.socket.write_json(MSG_QUEST)
+            self.write_json(MSG_QUEST)
 
         elif self.quest is None:
             logger.debug('(S%s) Got quest "%s"', id(self), message)
@@ -91,13 +95,13 @@ class Session(object):
             try:
                 # Get a existing user or create a new one
                 try:
-                    user = yield mud.User.get(self.db, self.name, self.quest)
+                    user = yield from mud.User.get(self.db, self.name, self.quest)
                 except KeyError:
-                    user = yield mud.User.create(self.db, self.name, self.quest)
+                    user = yield from mud.User.create(self.db, self.name, self.quest)
             except:
                 # Inform client of a rejected login
                 logger.info('Rejecting login', exc_info=True)
-                self.socket.write_json({
+                self.write_json({
                     'message': "That doesn't sound right"
                 })
                 self.user = None
@@ -108,7 +112,7 @@ class Session(object):
 
             self.message('Welcome %s. Your quest is %s',
                          self.user.name, self.user.quest)
-            yield action.look(self)
+            yield from action.look(self)
         else:
             logger.warning('extra message to handle_greeting: %s', message)
 
@@ -118,13 +122,13 @@ class Session(object):
         parts = message.split()
 
         if parts[0] == 'look':
-            yield action.look(self)
+            yield from action.look(self)
 
         elif parts[0] == 'go':
-            yield action.go(self, parts[1])
+            yield from action.go(self, parts[1])
 
         elif parts[0] == 'say':
-            yield action.say(self, ' '.join(parts[1:]))
+            yield from action.say(self, ' '.join(parts[1:]))
 
         else:
             self.message('.. what? %s' % parts[0])

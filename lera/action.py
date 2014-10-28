@@ -4,18 +4,18 @@ action
 This module describe the various actions a actor can take
 '''
 
-from tornado.gen import coroutine
+from asyncio import coroutine
 import logging
 from . import riak, model
 from .mud import Room, rollback
 
-logger = logging.getLogger('session')
+logger = logging.getLogger(__name__)
 
 
 @coroutine
 def look(session, what=None):
-    user = yield model.User.read(session.db, rollback, session.user.key)
-    room = yield model.Room.read(session.db, rollback, user.room)
+    user = yield from model.User.read(session.db, rollback, session.user.key)
+    room = yield from model.Room.read(session.db, rollback, user.room)
 
     occupants = [{'name': key} for key in room.occupants]
 
@@ -34,7 +34,7 @@ def go(session, label):
     user = session.user
     # Find room to go to
     try:
-        key = yield user.find_exit(session.db, label)
+        key = yield from user.find_exit(session.db, label)
     except KeyError:
         return session.message("You can't go %s", label)
 
@@ -46,13 +46,12 @@ def go(session, label):
 
     # Update room link
     user.room = key[1]
-    yield user.save(session.db)
+    yield from user.save(session.db)
 
     # Add to new room
-    yield Room.add_occupant(session.db, user.room, user.key)
+    yield from Room.add_occupant(session.db, user.room, user.key)
     logger.info('%s moved to %s', user.key, user.room)
 
     session.subscribe_room()
 
-    yield look(session)
-
+    yield from look(session)

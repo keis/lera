@@ -1,4 +1,4 @@
-from tornado.gen import coroutine
+from asyncio import coroutine
 import logging
 import contextlib
 import qube
@@ -36,7 +36,7 @@ class Model(object):
                 cls.queue_rollback(rollback, op)
 
         try:
-            response = yield db.get(cls.bucket, key)
+            response = yield from db.get(cls.bucket, key)
 
         except riak.Conflict as e:
             logger.debug("conflict in %s/%s", cls.bucket, key)
@@ -83,8 +83,9 @@ class Model(object):
 
         if modified:
             # Ideally this would happen after returning the list
-            yield model.save(db)
-            yield rollback.process(db)
+            # TODO: Task()
+            yield from model.save(db)
+            yield from rollback.process(db)
 
         logger.debug('read %s/%s %s', cls.bucket, key, vclock)
         return model
@@ -94,9 +95,9 @@ class Model(object):
         logger.debug("saving %s/%s %s", self.bucket, self.key, self.vclock)
 
         data = qube.to_json(self.qube)
-        yield db.save(self.bucket, self.key, data,
-                      vclock=self.vclock,
-                      links=self.links)
+        yield from db.save(self.bucket, self.key, data,
+                           vclock=self.vclock,
+                           links=self.links)
 
 
 class Room(Model):

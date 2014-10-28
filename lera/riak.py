@@ -1,12 +1,11 @@
-from tornado.gen import coroutine
-from tornado.httpclient import AsyncHTTPClient, HTTPRequest, HTTPError
+from asyncio import Future, coroutine
+from pulsar.apps.http import HttpClient
 from collections import namedtuple
 import logging
 import json
 import re
 
-
-logger = logging.getLogger('riak')
+logger = logging.getLogger(__name__)
 
 
 class Conflict(Exception):
@@ -111,19 +110,20 @@ def parse_links(links):
 class Client(object):
 
     def __init__(self, server):
-        self.http = AsyncHTTPClient()
+        self.http = HttpClient()
         self.server = server
 
     @coroutine
     def mapred(self, query):
-        request = HTTPRequest(
-            self.server + '/mapred',
-            method='POST',
-            headers={'Content-Type': 'application/json'},
-            body=json.dumps(query))
+        req = self.http.request('POST',
+                                self.server + '/mapred',
+                                headers={'Content-Type': 'application/json'},
+                                data=json.dumps(query))
 
-        response = yield self.http.fetch(request)
-        return json.loads(response.body.decode('utf-8'))
+        res = yield from req
+        res.body = res.recv_body()
+
+        return json.loads(res.body.decode('utf-8'))
 
     @coroutine
     def save(self, bucket, key, value, links=None, vclock=None):
@@ -137,33 +137,34 @@ class Client(object):
         if links:
             headers['Link'] = format_links(links)
 
-        request = HTTPRequest(
-            self.server + '/buckets/%s/keys/%s' % (bucket, key or ''),
-            method='POST' if key is None else 'PUT',
-            headers=headers,
-            body=json.dumps(value))
-        response = yield self.http.fetch(request)
-        return Object.from_response(response)
+        req = self.http.request('POST' if key is None else 'PUT',
+                                self.server + '/buckets/%s/keys/%s' % (bucket, key or ''),
+                                headers=headers,
+                                data=json.dumps(value))
+
+        res = yield from req
+        res.body = res.recv_body()
+
+        return Object.from_response(res)
 
     @coroutine
     def get(self, bucket, key):
         url = self.server + '/buckets/%s/keys/%s' % (bucket, key)
-        request = HTTPRequest(url,
-                              headers={'accept': 'application/json,multipart/mixed'})
-        try:
-            response = yield self.http.fetch(request)
-        except HTTPError as e:
-            response = e.response
+        res = self.http.request('GET', url,
+                                headers={'accept': 'application/json,multipart/mixed'})
 
-            if e.code == 300:
-                vclock = response.headers['X-Riak-VClock']
+        res.body = res.recv_body()
+
+        if res.status_code > 300:
+            if res.status_code == 300:
+                vclock = res.headers['X-Riak-VClock']
                 siblings = Object.from_multipart_response(response)
 
                 raise Conflict(vclock, url, siblings)
 
             raise KeyError(key)
 
-        obj = Object.from_response(response)
+        obj = Object.from_response(res)
         if not hasattr(obj, 'location'):
             obj.location = url
         return obj

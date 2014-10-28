@@ -1,59 +1,70 @@
-from tornado import web, websocket
-from tornado.gen import coroutine
+from asyncio import coroutine
+from verktyg import App, WebSocket, serve_static
 import logging
+import functools
 import itertools
-import json
 from .session import Session
 
-logger = logging.getLogger('server')
+logger = logging.getLogger(__name__)
 
+app = App()
 seq = itertools.count()
 
+@coroutine
+def websocket_handler(sock):
+    logger.info('WebSocket session started');
+    session = Session(sock)
+    session.start()
 
-class WebSocket(websocket.WebSocketHandler):
-    def open(self):
-        logger.info('WebSocket session started');
-        self.session = Session(self)
-        self.session.start()
-
-    def close(self):
-        logger.info('WebSocket session closed (Session %s)', id(self.session));
-
-    def write_json(self, data):
-        if self.ws_connection is None:
-            logger.error('Tried to write message but disconnected')
+    while True:
+        message = yield from sock.recv()
+        if message is None:
+            logger.info('WebSocket session closed (Session %s)', id(session));
             return
-        self.write_message(json.dumps(data))
 
-    @coroutine
-    def on_message(self, message):
         s = next(seq)
         logger.info('processing message: [%s], %s', message, s)
         try:
             # Delegate message processing to the session. Use the greeting
             # script if no user is set else treat the message as a user command
-            if not self.session.user:
+            if not session.user:
                 try:
-                    yield self.session.handle_greeting(message)
+                    yield from session.handle_greeting(message)
                 except:
-                    self.close()
+                    sock.close()
                     raise
 
             else:
-                yield self.session.handle_command(message)
+                yield from session.handle_command(message)
         except:
             logger.exception('error when processing message %s', s)
         else:
             logger.debug('message processed %s', s)
 
 
-class DevStatic(web.StaticFileHandler):
-    def set_extra_headers(self, path):
-        self.set_header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0')
+@app.route('/socket')
+@coroutine
+def websocket(req, res):
+    WebSocket.handshake(req, res)
+
+    connection = req.environ.get('pulsar.connection')
+    if not connection:
+        res.status(404).send(b'File not found')
+        return
+
+    factory = functools.partial(WebSocket, websocket_handler)
+    connection.upgrade(factory)
+    res.status(102).send(b'')
 
 
-application = web.Application([
-    ('/socket', WebSocket),
-    ('/js/(.*)', DevStatic, {'path': './js'}),
-    ('/(.*)', DevStatic, {'path': '.', 'default_filename': 'test.html'})
-])
+@app.route('/js/<path:path>')
+@coroutine
+def dev_static(req, res, path):
+    res.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
+    serve_static(res, './js/%s' % path)
+
+
+@app.route('/')
+@coroutine
+def index(req, res):
+    serve_static(res, 'test.html')
