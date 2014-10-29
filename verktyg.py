@@ -66,6 +66,11 @@ class Response(Future):
         self.status_code = code
         return self
 
+    def end(self):
+        headers = self.headers.to_wsgi_list()
+        self.start_response(self._status, headers)
+        return self
+
     def send(self, result):
         if isinstance(result, bytes):
             result = [result]
@@ -86,6 +91,7 @@ class WebSocket(protocol.WebSocketCommonProtocol):
     @classmethod
     def handshake(self, req, res):
         key = handshake.check_request(req.headers.__getitem__)
+        res.headers['Transfer-Encoding'] = 'chunked'
         res.headers['Sec-Websocket-Accept'] = handshake.accept(key)
         return key
 
@@ -97,6 +103,10 @@ class WebSocket(protocol.WebSocketCommonProtocol):
             logger.error("Exception in connection handler", exc_info=True)
             yield from self.fail_connection(1011)
             raise
+
+    def claim_transport(self, transport):
+        transport._protocol = self
+        self.connection_made(transport)
 
     def _data_received(self, data):
         self.data_received(data)

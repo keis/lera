@@ -3,6 +3,7 @@ from functools import partial
 from asyncio import coroutine, sleep, get_event_loop
 from verktyg import App, WebSocket, serve_static
 
+logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 app = App()
 
@@ -13,6 +14,7 @@ def handler(sock):
     while True:
         message = yield from sock.recv()
         if message is None:
+            print('no message')
             return
         print('message', message)
 
@@ -41,14 +43,15 @@ def javascript(req, res, path):
 def ws(req, res):
     WebSocket.handshake(req, res)
 
+    reader = req.environ.get('async.reader')
     writer = req.environ.get('async.writer')
 
     socket = WebSocket(handler)
-    socket.connection_made(writer.transport)
+    socket.claim_transport(writer.transport)
 
     res.headers['Upgrade'] = 'WebSocket'
     res.headers['Connection'] = 'Upgrade'
-    res.status(101).send(b'')
+    res.status(101).end()
 
 
 if __name__ == '__main__':
