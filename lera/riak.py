@@ -1,6 +1,6 @@
 from asyncio import Future, coroutine
-from pulsar.apps.http import HttpClient
 from collections import namedtuple
+import aiohttp
 import logging
 import json
 import re
@@ -110,18 +110,17 @@ def parse_links(links):
 class Client(object):
 
     def __init__(self, server):
-        self.http = HttpClient()
         self.server = server
 
     @coroutine
     def mapred(self, query):
-        req = self.http.request('POST',
-                                self.server + '/mapred',
-                                headers={'Content-Type': 'application/json'},
-                                data=json.dumps(query))
+        req = aiohttp.request('POST',
+                              self.server + '/mapred',
+                              headers={'Content-Type': 'application/json'},
+                              data=json.dumps(query))
 
         res = yield from req
-        res.body = res.recv_body()
+        res.body = yield from res.read()
 
         return json.loads(res.body.decode('utf-8'))
 
@@ -137,28 +136,33 @@ class Client(object):
         if links:
             headers['Link'] = format_links(links)
 
-        req = self.http.request('POST' if key is None else 'PUT',
-                                self.server + '/buckets/%s/keys/%s' % (bucket, key or ''),
-                                headers=headers,
-                                data=json.dumps(value))
+        req = aiohttp.request('POST' if key is None else 'PUT',
+                              self.server + '/buckets/%s/keys/%s' % (bucket, key or ''),
+                              headers=headers,
+                              data=json.dumps(value))
 
         res = yield from req
-        res.body = res.recv_body()
+        try:
+            res.body = yield from res.read()
+        except aiohttp.IncompleteRead:  # no data from put
+            res.body = None
 
         return Object.from_response(res)
 
     @coroutine
     def get(self, bucket, key):
         url = self.server + '/buckets/%s/keys/%s' % (bucket, key)
-        res = self.http.request('GET', url,
+        req = aiohttp.request('GET', url,
                                 headers={'accept': 'application/json,multipart/mixed'})
 
-        res.body = res.recv_body()
+        res = yield from req
+        res.body = yield from res.read()
 
-        if res.status_code > 300:
-            if res.status_code == 300:
+
+        if res.status >= 300:
+            if res.status == 300:
                 vclock = res.headers['X-Riak-VClock']
-                siblings = Object.from_multipart_response(response)
+                siblings = Object.from_multipart_response(res)
 
                 raise Conflict(vclock, url, siblings)
 

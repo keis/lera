@@ -47,14 +47,15 @@ def websocket_handler(sock):
 def websocket(req, res):
     WebSocket.handshake(req, res)
 
-    connection = req.environ.get('pulsar.connection')
-    if not connection:
-        res.status(404).send(b'File not found')
-        return
+    writer = req.environ.get('async.writer')
+    reader = req.environ.get('async.reader')
 
-    factory = functools.partial(WebSocket, websocket_handler)
-    connection.upgrade(factory)
-    res.status(102).send(b'')
+    socket = WebSocket(websocket_handler)
+    socket.claim_transport(writer.transport)
+
+    res.headers['Upgrade'] = 'WebSocket'
+    res.headers['Connection'] = 'Upgrade'
+    res.status(101).end()
 
 
 @app.route('/js/<path:path>')

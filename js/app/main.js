@@ -7,7 +7,8 @@ define([
     'use strict';
 
     function start () {
-        var sock = new Socket('ws://localhost:8888/socket'),
+        var host = window.location.host,
+            sock = new Socket('ws://' + host + '/socket'),
             view;
 
         view = new View({

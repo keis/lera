@@ -15,7 +15,7 @@ class AsyncBroker(smoke.Broker):
 
     # https://github.com/keis/smoke/issues/1
     def publish(self, event, **kwargs):
-        Task(async_publish(event, **kwargs))
+        Task(self.async_publish(event, **kwargs))
 
 
 class World(AsyncBroker):
