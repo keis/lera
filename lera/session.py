@@ -58,9 +58,6 @@ class Session(object):
         '''Send a plaintext message to the client'''
         self.write_json({'message': frmt % args})
 
-    def start(self):
-        self.write_json(MSG_NAME)
-
     def disconnect_room(self):
         '''Helper to disconnect signal subscriptions of the current room'''
 
@@ -78,43 +75,45 @@ class Session(object):
         self.world.say(room).subscribe(self.on_say)
 
     @coroutine
-    def handle_greeting(self, message):
-        '''Handle a message during the greeting script.
+    def handle_greeting(self):
+        '''Handle a messages during the greeting script.
 
         Once all needed information has been collected `user` will be set.
         '''
 
-        if self.name is None:
-            logger.debug('(S%s) Got username "%s"', id(self), message)
-            self.name = message
-            self.write_json(MSG_QUEST)
+        self.write_json(MSG_NAME)
 
-        elif self.quest is None:
-            logger.debug('(S%s) Got quest "%s"', id(self), message)
-            self.quest = message
+        # Gather user details
+        username = yield from self.socket.recv()
+        logger.debug('(S%s) Got username "%s"', id(self), username)
+
+        self.write_json(MSG_QUEST)
+
+        quest = yield from self.socket.recv()
+        logger.debug('(S%s) Got quest "%s"', id(self), quest)
+
+        # Get an existing user or create a new one
+        try:
             try:
-                # Get a existing user or create a new one
-                try:
-                    user = yield from mud.User.get(self.db, self.name, self.quest)
-                except KeyError:
-                    user = yield from mud.User.create(self.db, self.name, self.quest)
-            except:
-                # Inform client of a rejected login
-                logger.info('Rejecting login', exc_info=True)
-                self.write_json({
-                    'message': "That doesn't sound right"
-                })
-                self.user = None
-                raise
+                user = yield from mud.User.get(self.db, username, quest)
+            except KeyError:
+                user = yield from mud.User.create(self.db, username, quest)
+        except:
+            # Inform client of a rejected login
+            logger.info('Rejecting login', exc_info=True)
+            self.write_json({
+                'message': "That doesn't sound right"
+            })
+            self.user = None
+            raise
 
-            self.user = user
-            self.subscribe_room()
+        self.user = user
+        self.subscribe_room()
+        self.message('Welcome %s. Your quest is %s',
+                     username, quest)
 
-            self.message('Welcome %s. Your quest is %s',
-                         self.user.name, self.user.quest)
-            yield from action.look(self)
-        else:
-            logger.warning('extra message to handle_greeting: %s', message)
+        yield from action.look(self)
+
 
     @coroutine
     def handle_command(self, message):

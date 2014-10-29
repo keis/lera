@@ -12,30 +12,23 @@ seq = itertools.count()
 
 @coroutine
 def websocket_handler(sock):
-    logger.info('WebSocket session started');
     session = Session(sock)
-    session.start()
+    logger.info('WebSocket session started');
+
+    yield from session.handle_greeting()
 
     while True:
         message = yield from sock.recv()
+
         if message is None:
             logger.info('WebSocket session closed (Session %s)', id(session));
             return
 
         s = next(seq)
         logger.info('processing message: [%s], %s', message, s)
-        try:
-            # Delegate message processing to the session. Use the greeting
-            # script if no user is set else treat the message as a user command
-            if not session.user:
-                try:
-                    yield from session.handle_greeting(message)
-                except:
-                    sock.close()
-                    raise
 
-            else:
-                yield from session.handle_command(message)
+        try:
+            yield from session.handle_command(message)
         except:
             logger.exception('error when processing message %s', s)
         else:
