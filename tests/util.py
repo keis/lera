@@ -1,16 +1,15 @@
 import functools
 from mock import Mock
-from tornado.gen import coroutine
-from tornado.ioloop import IOLoop
-from tornado.concurrent import Future
+from asyncio import coroutine, get_event_loop
 
 
 def async(f):
     @functools.wraps(f)
     def test_wrapper(*args, **kwargs):
         coro = coroutine(f)
-        loop = IOLoop.current()
-        loop.run_sync(functools.partial(coro, *args, **kwargs), timeout=2)
+        future = coro(*args, **kwargs)
+        loop = get_event_loop()
+        loop.run_until_complete(future)
 
     return test_wrapper
 

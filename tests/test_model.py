@@ -1,7 +1,7 @@
 from hamcrest import assert_that, equal_to
 from hamcrest.library import instance_of, has_property, has_entry, has_length, has_key
 from .matchers import called_once_with
-from tornado.gen import coroutine
+from asyncio import coroutine
 from mock import Mock
 from .util import async, CoroMock
 
@@ -48,7 +48,7 @@ def test_read_returns_new_instance():
 
     db.get.return_value = StubDbResult(qube.init(), key='zzz')
 
-    m = yield FooModel.read(db, rollback, 'zzz')
+    m = yield from FooModel.read(db, rollback, 'zzz')
 
     assert_that(m, instance_of(FooModel))
 
@@ -75,7 +75,7 @@ def test_read_merges_siblings():
 
     db.get.side_effect = doraise
 
-    m = yield FooModel.read(db, rollback, 'zzz')
+    m = yield from FooModel.read(db, rollback, 'zzz')
 
     assert_that(m, instance_of(FooModel))
     assert_that(m.qube['data'], has_entry('test', {'abc', 'def', 'ghi'}))
@@ -105,7 +105,7 @@ def test_read_queues_rollback():
 
     db.get.side_effect = doraise
 
-    m = yield FooModel.read(db, rollback, 'zzz')
+    m = yield from FooModel.read(db, rollback, 'zzz')
 
     assert_that(rollback.queue, called_once_with('bar', 'abc', 'tx789'))
 
@@ -123,7 +123,7 @@ def test_read_performs_rollback():
 
     db.get.return_value = StubDbResult(qube.to_json(qa), key='zzz')
 
-    m = yield FooModel.read(db, rollback, 'zzz')
+    m = yield from FooModel.read(db, rollback, 'zzz')
 
     assert_that(m.qube['journal'], has_length(2))
     assert_that(m.qube['data'], has_entry('test', {'abc', 'ghi'}))
@@ -157,7 +157,7 @@ def test_read_performs_rollback_with_siblings():
 
     db.get.side_effect = doraise
 
-    m = yield FooModel.read(db, rollback, 'zzz')
+    m = yield from FooModel.read(db, rollback, 'zzz')
 
     assert_that(m.qube['journal'], has_length(2))
     assert_that(m.qube['data'], has_entry('test', {'abc', 'jkl'}))
@@ -194,7 +194,7 @@ def test_read_conflict_rollback_not_reintroduced():
 
     db.get.side_effect = doraise
 
-    m = yield FooModel.read(db, rollback, 'zzz')
+    m = yield from FooModel.read(db, rollback, 'zzz')
 
     assert_that(m.qube['journal'], has_length(3))
     assert_that(m.qube['data'], has_entry('test', {'abc', 'def', 'ghi'}))

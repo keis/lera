@@ -1,6 +1,6 @@
 from hamcrest import assert_that, equal_to
 from hamcrest.library import has_length
-from tornado.gen import coroutine
+from asyncio import coroutine
 from mock import Mock
 from .util import async
 
@@ -41,7 +41,7 @@ def test_processes_until_queue_is_empty():
 
     assert_that(r._queue, has_length(2))
 
-    yield r.process(db)
+    yield from r.process(db)
 
     assert_that(r._queue, has_length(0))
 
@@ -56,7 +56,7 @@ def test_queue_during_process():
 
     assert_that(r._queue, has_length(1))
 
-    yield r.process(db)
+    yield from r.process(db)
 
     assert_that(r._queue, has_length(0))
     assert_that(b.calls[0], equal_to((db, r, '20')))
