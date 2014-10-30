@@ -48,15 +48,15 @@ class Model(object):
             data = qube.from_json(first)
 
             for tx in rollbacks:
-                qube.rollback(data, tx, queue_rollback)
+                qube.rollback(data, tx, error=queue_rollback)
 
             for r in e.siblings:
                 r = qube.from_json(r)
 
                 for tx in rollbacks:
-                    qube.rollback(r, tx, queue_rollback)
+                    qube.rollback(r, tx, error=queue_rollback)
 
-                data = qube.merge(data, r, queue_rollback)
+                data = qube.merge(data, r, error=queue_rollback)
 
         except:
             logger.error("Other error reading", exc_info=True)
@@ -73,7 +73,7 @@ class Model(object):
                 try:
                     seq = data['sequence']
                     for tx in rollbacks:
-                        data = qube.rollback(data, tx, queue_rollback)
+                        data = qube.rollback(data, tx, error=queue_rollback)
                     modified = seq != data['sequence']
                 except:
                     logger.error("error performing rollback", exc_info=True)

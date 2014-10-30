@@ -39,9 +39,9 @@ operations = {
     'change': (change_apply, change_reverse)
 }
 
-def rzip(seqa, seqb):
-    l = min(len(seqa), len(seqb)) - 1
-    return zip(seqa[l::-1], seqb[l::-1])
+def rzip(*seqs):
+    l = min([len(s) for s in seqs]) - 1
+    return zip(*[s[l::-1] for s in seqs])
 
 
 def apply_op(qube, op):
@@ -95,25 +95,29 @@ def to_json(qube):
     }
 
 
-def merge(ql, qr, error=None):
+# TODO allow seq to be given and rollback could be written in terms of merge
+#      or create a new function with that functionality
+def merge(*qubes, error=None):
     # Find the last common journal entry
-    for (jl, jr) in rzip(ql['journal'], qr['journal']):
-        if jl == jr:
+    for js in rzip(*[q['journal'] for q in qubes]):
+        if js[:-1] == js[1:]:
             break
     else:
         raise Exception('no common journal entry')
 
-    seq = jl[0]
+    seq = js[0][0]
 
     # Let base be the qube with the lowest sequence number
-    base, other = sorted([ql, qr], key=lambda q: q['sequence'])
+    base, *other = sorted(qubes, key=lambda q: q['sequence'])
     data = base['data']
 
     # Update list of rolled back txs
-    base['rollback'].update(other['rollback'])
+    base['rollback'].update(*[o['rollback'] for o in other])
 
     # Assemble a queue of operations to replay
-    queue = ql['journal'][seq:] + qr['journal'][seq:]
+    queue = []
+    for q in qubes:
+        queue.extend(q['journal'][seq:])
     queue.sort()
 
     # Reverse the base back to the last common journal entry
