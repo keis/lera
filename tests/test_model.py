@@ -16,7 +16,7 @@ class FooModel(model.Model):
     @classmethod
     def queue_rollback(self, rollback, op):
         txid = op[-1]
-        rollback.queue('bar', op[3], txid)
+        rollback.queue('bar', op[2], txid)
 
 
 class StubDb(object):

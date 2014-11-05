@@ -120,7 +120,7 @@ class Room(Model):
     @classmethod
     def queue_rollback(cls, rollback, op):
         txid = op[-1]
-        rollback.queue('users', op[3], txid)
+        rollback.queue('users', op[2], txid)
 
 
 class User(Model):

@@ -116,10 +116,15 @@ def merge(*qubes, error=None):
     # Update list of rolled back txs
     base['rollback'].update(*[o['rollback'] for o in other])
 
-    # Assemble a queue of operations to replay
+    # Assemble a queue of operations to replay. Duplicates operations where the
+    # transaction id matches is silently ignored.
+    # TODO: Consider a more opportunistic approach of ignoring errors from duplicates
     queue = []
     for q in qubes:
-        queue.extend(q['journal'][seq:])
+        for o in q['journal'][seq:]:
+            op = o[1:]
+            if op not in queue:
+                queue.append(op)
     queue.sort()
 
     # Reverse the base back to the last common journal entry
@@ -134,7 +139,7 @@ def merge(*qubes, error=None):
             continue
 
         with error(op):
-            apply_op(base, op[1:])
+            apply_op(base, op)
 
     return base
 
