@@ -45,9 +45,11 @@ def rzip(*seqs):
 
 
 def apply_op(qube, op):
+    name, key, arg, tx = op
+
     qube['sequence'] += 1
-    operations[op[0]][APPLY](qube['data'], op[1], op[2])
-    qube['journal'].append((qube['sequence'],) + op)
+    operations[name][APPLY](qube['data'], key, arg)
+    qube['journal'].append((qube['sequence'], name, key, arg, tx))
 
 
 def init(data=None):

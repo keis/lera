@@ -29,12 +29,12 @@ def test_init():
 
 def test_merge():
     qa = qube.init({'name': 'zoidberg', 'number': 5})
-    qube.apply_op(qa, ('change', 'number', (5, 6)))
+    qube.apply_op(qa, ('change', 'number', (5, 6), 'tx001'))
 
     qb = qube.from_json(qube.to_json(qa))
 
-    qube.apply_op(qa, ('change', 'name', ('zoidberg', 'bob')))
-    qube.apply_op(qb, ('change', 'number', (6, 7)))
+    qube.apply_op(qa, ('change', 'name', ('zoidberg', 'bob'), 'tx002'))
+    qube.apply_op(qb, ('change', 'number', (6, 7), 'tx003'))
 
     error, watch = track_error()
 
@@ -47,14 +47,14 @@ def test_merge():
 
 def test_threeway_merge():
     qa = qube.init({'name': 'zoidberg', 'number': 5, 'value': 10})
-    qube.apply_op(qa, ('change', 'number', (5, 6)))
+    qube.apply_op(qa, ('change', 'number', (5, 6), 'tx001'))
 
     qb = qube.from_json(qube.to_json(qa))
     qc = qube.from_json(qube.to_json(qa))
 
-    qube.apply_op(qa, ('change', 'name', ('zoidberg', 'bob')))
-    qube.apply_op(qb, ('change', 'number', (6, 7)))
-    qube.apply_op(qc, ('change', 'value', (10, 9)))
+    qube.apply_op(qa, ('change', 'name', ('zoidberg', 'bob'), 'tx002'))
+    qube.apply_op(qb, ('change', 'number', (6, 7), 'tx003'))
+    qube.apply_op(qc, ('change', 'value', (10, 9), 'tx004'))
 
     error, watch = track_error()
 
@@ -69,15 +69,15 @@ def test_threeway_merge():
 
 def test_step_merge():
     qa = qube.init({'name': 'zoidberg', 'number': 5, 'value': 10})
-    qube.apply_op(qa, ('change', 'number', (5, 6)))
+    qube.apply_op(qa, ('change', 'number', (5, 6), 'tx001'))
 
     qb = qube.from_json(qube.to_json(qa))
 
-    qube.apply_op(qa, ('change', 'name', ('zoidberg', 'bob')))
-    qube.apply_op(qb, ('change', 'number', (6, 7)))
+    qube.apply_op(qa, ('change', 'name', ('zoidberg', 'bob'), 'tx002'))
+    qube.apply_op(qb, ('change', 'number', (6, 7), 'tx003'))
 
     qc = qube.from_json(qube.to_json(qa))
-    qube.apply_op(qc, ('change', 'value', (10, 9)))
+    qube.apply_op(qc, ('change', 'value', (10, 9), 'tx004'))
 
     pprint(qa)
     pprint(qb)
@@ -107,15 +107,15 @@ def test_step_merge():
 
 def test_step_merge_bside():
     qa = qube.init({'name': 'zoidberg', 'number': 5, 'value': 10})
-    qube.apply_op(qa, ('change', 'number', (5, 6)))
+    qube.apply_op(qa, ('change', 'number', (5, 6), 'tx001'))
 
     qb = qube.from_json(qube.to_json(qa))
 
-    qube.apply_op(qa, ('change', 'name', ('zoidberg', 'bob')))
-    qube.apply_op(qb, ('change', 'number', (6, 7)))
+    qube.apply_op(qa, ('change', 'name', ('zoidberg', 'bob'), 'tx002'))
+    qube.apply_op(qb, ('change', 'number', (6, 7), 'tx004'))
 
     qc = qube.from_json(qube.to_json(qb))
-    qube.apply_op(qc, ('change', 'value', (10, 9)))
+    qube.apply_op(qc, ('change', 'value', (10, 9), 'tx004'))
 
     pprint(qa)
     pprint(qb)
